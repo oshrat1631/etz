@@ -1,0 +1,2329 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בונה עץ הסתברות</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Heebo', sans-serif;
+            background: linear-gradient(135deg, #fef7ff 0%, #f0f9ff 100%);
+        }
+        
+        .tree-node {
+            transition: all 0.15s ease;
+            cursor: grab;
+        }
+        
+        .tree-node:active {
+            cursor: grabbing;
+        }
+        
+        .tree-node:hover {
+            filter: brightness(1.1);
+            stroke-width: 3;
+        }
+        
+        .tree-node:active {
+            filter: brightness(0.9);
+        }
+        
+        .tree-node.non-clickable {
+            cursor: default;
+        }
+        
+        .tree-node.non-clickable:hover {
+            filter: none;
+            stroke-width: 2;
+        }
+        
+        .tree-node.expandable {
+            stroke-width: 3;
+            stroke-dasharray: 5,5;
+            animation: pulse-border 2s infinite;
+        }
+        
+        @keyframes pulse-border {
+            0%, 100% { stroke-opacity: 1; }
+            50% { stroke-opacity: 0.5; }
+        }
+        
+        .branch-line {
+            stroke: #d8b4fe;
+            stroke-width: 2;
+            fill: none;
+            transition: all 0.3s ease;
+        }
+        
+        .branch-line.hidden-branch {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .highlighted-path {
+            stroke: #f59e0b !important;
+            stroke-width: 4 !important;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .node-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .node-tooltip.show {
+            opacity: 1;
+        }
+
+        .tree-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .topic-button.selected {
+            border-color: #fbbf24 !important;
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-purple-800 mb-2">🌳 בונה עץ הסתברות</h1>
+            <p class="text-purple-600">בואו נלמד להבין הסתברויות בצורה חזותית ומעשית!</p>
+        </div>
+
+        <!-- Usage Instructions Panel -->
+        <div class="mb-6 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200 rounded-2xl p-6">
+            <h2 class="text-xl font-bold text-green-800 mb-4">🚀 איך להשתמש ביישומון?</h2>
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Left Column - Basic Steps -->
+                <div class="space-y-4">
+                    <div class="bg-white/80 p-4 rounded-lg border-l-4 border-green-500">
+                        <h3 class="font-bold text-green-700 mb-2">1️⃣ בחירת נושא</h3>
+                        <p class="text-sm text-gray-700">בחרו נושא מהכפתורים למטה (מטבע או קובייה) ולחצו "התחל עץ חדש"</p>
+                    </div>
+                    
+                    <div class="bg-white/80 p-4 rounded-lg border-l-4 border-blue-500">
+                        <h3 class="font-bold text-blue-700 mb-2">2️⃣ עריכת וגרירת צמתים</h3>
+                        <p class="text-sm text-gray-700">לחצו על עיגול לעריכה, או גררו אותו כדי לשנות את מיקומו בעץ</p>
+                    </div>
+                    
+                    <div class="bg-white/80 p-4 rounded-lg border-l-4 border-purple-500">
+                        <h3 class="font-bold text-purple-700 mb-2">3️⃣ הזנת הסתברויות</h3>
+                        <p class="text-sm text-gray-700">הזינו הסתברויות כעשרוני (0.5) או כשבר (1/2). המערכת תוודא שהסכום הוא 1</p>
+                    </div>
+                    
+                    <div class="bg-white/80 p-4 rounded-lg border-l-4 border-orange-500">
+                        <h3 class="font-bold text-orange-700 mb-2">4️⃣ צפייה בתוצאות</h3>
+                        <p class="text-sm text-gray-700">המערכת תציג אוטומטית את כל המסלולים וההסתברויות שלהם</p>
+                    </div>
+                </div>
+                
+                <!-- Right Column - Advanced Features -->
+                <div class="space-y-4">
+                    <div class="bg-white/80 p-4 rounded-lg border-l-4 border-yellow-500">
+                        <h3 class="font-bold text-yellow-700 mb-2">🎯 סימון נתיבים מרובים</h3>
+                        <p class="text-sm text-gray-700">במחשב: החזיקו Shift ולחצו על צמתים ברצף. בנייד: לחצו על "📱 מצב נתיבים" ואז על צמתים. לחצו על עלה כדי להשלים נתיב. ניתן לסמן מספר נתיבים בצבעים שונים!</p>
+                    </div>
+                    
+                    <div class="bg-white/80 p-4 rounded-lg border-l-4 border-red-500">
+                        <h3 class="font-bold text-red-700 mb-2">🔍 זום ותצוגה</h3>
+                        <p class="text-sm text-gray-700">השתמשו בכפתורי הזום כדי להגדיל/להקטין את העץ לתצוגה נוחה</p>
+                    </div>
+                    
+                    <div class="bg-white/80 p-4 rounded-lg border-l-4 border-indigo-500">
+                        <h3 class="font-bold text-indigo-700 mb-2">✅ בדיקת תקינות</h3>
+                        <p class="text-sm text-gray-700">המערכת בודקת אוטומטית שההסתברויות תקינות ומציעה תיקונים</p>
+                    </div>
+                    
+                    <div class="bg-white/80 p-4 rounded-lg border-l-4 border-pink-500">
+                        <h3 class="font-bold text-pink-700 mb-2">📊 תוצאות מפורטות</h3>
+                        <p class="text-sm text-gray-700">צפו בכל המסלולים, ההסתברויות שלהם ובדיקת תקינות כוללת</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Tips -->
+            <div class="mt-6 bg-gradient-to-r from-yellow-100 to-orange-100 p-4 rounded-lg border border-yellow-300">
+                <h3 class="font-bold text-yellow-800 mb-2">⚡ טיפים מהירים:</h3>
+                <div class="grid md:grid-cols-2 gap-4 text-sm text-yellow-700">
+                    <ul class="space-y-1">
+                        <li>• 🎲 השתמשו בשמות ברורים לענפים</li>
+                        <li>• 🔢 הסתברויות חייבות להיות בין 0 ל-1</li>
+                        <li>• ➕ סכום הסתברויות מכל צומת = 1</li>
+                    </ul>
+                    <ul class="space-y-1">
+                        <li>• 🎯 Shift+קליק או מצב נתיבים לסימון</li>
+                        <li>• 🖱️ גררו צמתים לסידור מחדש</li>
+                        <li>• 🔍 השתמשו בזום לתצוגה טובה</li>
+                        <li>• 📋 המערכת תתקן שגיאות אוטומטית</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Theory and Information Panel -->
+        <div class="mb-6">
+            <div class="flex justify-center">
+                <button id="toggle-theory" class="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-6 py-3 rounded-xl font-bold text-lg transition-all active:scale-95 transform shadow-lg">
+                    📚 מידע חשוב - תיאוריה ודוגמאות
+                </button>
+            </div>
+            
+            <div id="theory-panel" class="hidden mt-4 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-2xl p-6">
+                <div class="space-y-6 text-blue-800">
+                    <!-- Theory Section -->
+                    <div class="bg-gradient-to-r from-purple-100 to-blue-100 p-6 rounded-xl border-2 border-purple-200">
+                        <h3 class="text-xl font-bold text-purple-800 mb-4">📚 תיאוריה בסיסית בהסתברות</h3>
+                        
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div class="space-y-4">
+                                <div class="bg-white/80 p-4 rounded-lg">
+                                    <h4 class="font-bold text-purple-700 mb-2">🎲 מרחב המדגם (Sample Space)</h4>
+                                    <p class="text-sm text-gray-700">מרחב המדגם הוא קבוצת כל התוצאות האפשריות של ניסוי.</p>
+                                    <p class="text-xs text-purple-600 mt-1"><strong>דוגמה:</strong> בהטלת מטבע: S = {עץ, פלי}</p>
+                                </div>
+                                
+                                <div class="bg-white/80 p-4 rounded-lg">
+                                    <h4 class="font-bold text-purple-700 mb-2">🎯 אירוע (Event)</h4>
+                                    <p class="text-sm text-gray-700">אירוע הוא תת-קבוצה של מרחב המדגם.</p>
+                                    <p class="text-xs text-purple-600 mt-1"><strong>סימון:</strong> P(A) = הסתברות לאירוע A</p>
+                                </div>
+                                
+                                <div class="bg-white/80 p-4 rounded-lg">
+                                    <h4 class="font-bold text-purple-700 mb-2">🔄 אירוע משלים (Complement)</h4>
+                                    <p class="text-sm text-gray-700">האירוע המשלים לA הוא כל התוצאות שאינן A.</p>
+                                    <p class="text-xs text-purple-600 mt-1"><strong>נוסחה:</strong> P(A') = 1 - P(A)</p>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-4">
+                                <div class="bg-white/80 p-4 rounded-lg">
+                                    <h4 class="font-bold text-green-700 mb-2">✖️ כלל הכפל (גם וגם)</h4>
+                                    <p class="text-sm text-gray-700">הסתברות שקורים שני אירועים יחד:</p>
+                                    <p class="text-xs text-green-600 mt-1"><strong>נוסחה:</strong> P(A ∩ B) = P(A) × P(B|A)</p>
+                                    <p class="text-xs text-gray-600">אם עצמאיים: P(A ∩ B) = P(A) × P(B)</p>
+                                </div>
+                                
+                                <div class="bg-white/80 p-4 rounded-lg">
+                                    <h4 class="font-bold text-orange-700 mb-2">➕ כלל החיבור (או או)</h4>
+                                    <p class="text-sm text-gray-700">הסתברות שקורה לפחות אחד משני אירועים:</p>
+                                    <p class="text-xs text-orange-600 mt-1"><strong>נוסחה:</strong> P(A ∪ B) = P(A) + P(B) - P(A ∩ B)</p>
+                                    <p class="text-xs text-gray-600">אם זרים: P(A ∪ B) = P(A) + P(B)</p>
+                                </div>
+                                
+                                <div class="bg-white/80 p-4 rounded-lg">
+                                    <h4 class="font-bold text-red-700 mb-2">📏 תכונות בסיסיות</h4>
+                                    <ul class="text-xs text-gray-700 space-y-1">
+                                        <li>• 0 ≤ P(A) ≤ 1</li>
+                                        <li>• P(S) = 1 (מרחב המדגם)</li>
+                                        <li>• P(∅) = 0 (קבוצה ריקה)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Examples Section -->
+                    <div class="bg-gradient-to-r from-green-100 to-yellow-100 p-6 rounded-xl border-2 border-green-200">
+                        <h3 class="text-xl font-bold text-green-800 mb-4">🌟 דוגמאות מעשיות</h3>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div class="bg-white/80 p-4 rounded-lg">
+                                <h4 class="font-bold text-green-700 mb-2">🪙 דוגמה: הטלת מטבע פעמיים</h4>
+                                <p class="text-sm text-gray-700 mb-2">מרחב המדגם: {עע, עפ, פע, פפ}</p>
+                                <p class="text-xs text-green-600">P(שני עצים) = P(עץ) × P(עץ) = 0.5 × 0.5 = 0.25</p>
+                            </div>
+                            <div class="bg-white/80 p-4 rounded-lg">
+                                <h4 class="font-bold text-green-700 mb-2">🎲 דוגמה: הטלת קובייה</h4>
+                                <p class="text-sm text-gray-700 mb-2">מרחב המדגם: {1,2,3,4,5,6}</p>
+                                <p class="text-xs text-green-600">P(זוגי או גדול מ-4) = P(זוגי) + P(גדול מ-4) - P(זוגי וגדול מ-4)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Working Steps Panel -->
+        <div class="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-2xl p-6">
+            <h2 class="text-xl font-bold text-blue-800 mb-4">📋 שלבי העבודה</h2>
+            
+            <div class="grid md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-white/70 p-4 rounded-lg">
+                    <h3 class="font-semibold mb-2">🎯 שלב 1: הגדרה</h3>
+                    <p class="text-sm">בחרו שם ונושא לעץ שלכם. זה יעזור לכם להבין על איזה מצב אתם חושבים.</p>
+                </div>
+                <div class="bg-white/70 p-4 rounded-lg">
+                    <h3 class="font-semibold mb-2">🌱 שלב 2: בניית העץ</h3>
+                    <p class="text-sm">לחצו על הצמתים כדי להוסיף ענפים חדשים. כל ענף מייצג אפשרות או תוצאה.</p>
+                </div>
+                <div class="bg-white/70 p-4 rounded-lg">
+                    <h3 class="font-semibold mb-2">🧮 שלב 3: הסתברויות</h3>
+                    <p class="text-sm">הוסיפו הסתברויות לכל ענף. זכרו שסכום ההסתברויות מכל צומת צריך להיות 1!</p>
+                </div>
+            </div>
+            
+            <div class="bg-yellow-100 border border-yellow-300 rounded-lg p-4">
+                <h3 class="font-semibold text-yellow-800 mb-2">💡 טיפים חשובים לעבודה עם העץ:</h3>
+                <ul class="text-sm text-yellow-700 space-y-1">
+                    <li>• השתמשו בשמות ברורים לכל ענף</li>
+                    <li>• ודאו שכל ההסתברויות חיוביות ופחותות או שוות ל-1</li>
+                    <li>• סכום ההסתברויות היוצאות מכל צומת חייב להיות 1</li>
+                    <li>• לחצו על "חשב הסתברות" כדי לראות את ההסתברות הכוללת לכל מסלול</li>
+                    <li>• בעץ הסתברות: כפלו הסתברויות לאורך המסלול (כלל הכפל)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Tree Setup Panel -->
+        <div class="mb-6 bg-white rounded-2xl shadow-lg p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">⚙️ בחירת נושא לעץ</h2>
+            <div class="grid md:grid-cols-2 gap-4 mb-4">
+                <button id="topic-coin" class="topic-button bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white p-6 rounded-xl font-medium transition-all active:scale-95 transform border-4 border-transparent">
+                    <div class="text-3xl mb-2">🪙</div>
+                    <div class="text-lg font-bold">הטלת מטבע</div>
+                    <div class="text-sm opacity-90">עץ הסתברות להטלת מטבע פעם או פעמיים</div>
+                </button>
+                <button id="topic-dice" class="topic-button bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white p-6 rounded-xl font-medium transition-all active:scale-95 transform border-4 border-transparent">
+                    <div class="text-3xl mb-2">🎲</div>
+                    <div class="text-lg font-bold">הטלת קובייה</div>
+                    <div class="text-sm opacity-90">עץ הסתברות להטלת קובייה ותוצאות שונות</div>
+                </button>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+                <button id="start-tree" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all active:scale-95 transform">
+                    התחל עץ חדש
+                </button>
+                <button id="clear-tree" class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all active:scale-95 transform">
+                    נקה עץ
+                </button>
+            </div>
+        </div>
+
+        <!-- Questions Panel -->
+        <div id="questions-panel" class="mb-6 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-2xl p-6 hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-orange-800">🎯 שאלת תרגול</h2>
+                <div class="flex gap-1 flex-wrap">
+                    <button id="next-question" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs font-medium transition-all">
+                        הבא
+                    </button>
+                    <button id="show-answer" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-all">
+                        תשובה
+                    </button>
+                    <button id="close-questions" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-medium transition-all">
+                        סגור
+                    </button>
+                </div>
+            </div>
+            <div id="current-question" class="bg-white p-4 rounded-lg border-2 border-yellow-300 mb-4">
+                <p class="text-lg font-medium text-gray-800 mb-2" id="question-text">השאלה תופיע כאן...</p>
+                <div id="question-answer" class="hidden bg-green-50 p-3 rounded-lg border border-green-200 mt-3">
+                    <p class="text-green-800 font-medium">תשובה:</p>
+                    <p id="answer-text" class="text-green-700"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tree Visualization -->
+        <div class="tree-container mb-6">
+            <div class="p-6">
+                <div class="mb-4">
+                    <h2 class="text-xl font-bold text-gray-800 mb-3">🌳 העץ שלכם</h2>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap gap-1 text-xs">
+                        <button id="coin-questions" class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs font-medium transition-all">
+                            שאלות מטבע
+                        </button>
+                        <button id="dice-questions" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs font-medium transition-all">
+                            שאלות קובייה
+                        </button>
+                        <button id="zoom-in" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-all">
+                            זום+
+                        </button>
+                        <button id="zoom-out" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-all">
+                            זום-
+                        </button>
+                        <button id="clear-path" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs font-medium transition-all">
+                            נקה נתיבים
+                        </button>
+                        <button id="auto-complete" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs font-medium transition-all">
+                            עץ אוטומטי
+                        </button>
+                        <button id="toggle-path-mode" class="bg-pink-500 hover:bg-pink-600 text-white px-2 py-1 rounded text-xs font-medium transition-all">
+                            📱 מצב נתיבים
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Path Selection Controls -->
+                <div id="path-controls" class="mb-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <div class="flex items-center gap-4 mb-3">
+                        <h3 class="font-bold text-blue-800">🎨 בחירת צבע לנתיב הבא:</h3>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button class="color-btn w-8 h-8 rounded-full border-2 border-gray-300" style="background-color: #f59e0b" data-color="#f59e0b" title="כתום"></button>
+                            <button class="color-btn w-8 h-8 rounded-full border-2 border-gray-300" style="background-color: #ef4444" data-color="#ef4444" title="אדום"></button>
+                            <button class="color-btn w-8 h-8 rounded-full border-2 border-gray-300" style="background-color: #10b981" data-color="#10b981" title="ירוק"></button>
+                            <button class="color-btn w-8 h-8 rounded-full border-2 border-gray-300" style="background-color: #3b82f6" data-color="#3b82f6" title="כחול"></button>
+                            <button class="color-btn w-8 h-8 rounded-full border-2 border-gray-300" style="background-color: #8b5cf6" data-color="#8b5cf6" title="סגול"></button>
+                            <button class="color-btn w-8 h-8 rounded-full border-2 border-gray-300" style="background-color: #f97316" data-color="#f97316" title="כתום כהה"></button>
+                            <button class="color-btn w-8 h-8 rounded-full border-2 border-gray-300" style="background-color: #06b6d4" data-color="#06b6d4" title="טורקיז"></button>
+                            <button class="color-btn w-8 h-8 rounded-full border-2 border-gray-300" style="background-color: #84cc16" data-color="#84cc16" title="ירוק בהיר"></button>
+                        </div>
+                        <span id="selected-color-indicator" class="text-sm font-medium text-blue-700">צבע נבחר: כתום</span>
+                    </div>
+                    <div class="text-sm text-blue-600">
+                        💡 <strong>איך לסמן נתיבים:</strong> 
+                        <span id="desktop-instructions">
+                            <strong>במחשב:</strong> החזיקו Shift ולחצו על צמתים ברצף. 
+                            <strong>בנייד:</strong> לחצו על "📱 מצב נתיבים" ואז לחצו על צמתים ברצף. 
+                            לחיצה חוזרת על צומת מבטלת את הסימון. לחצו על עלה כדי להשלים נתיב.
+                        </span>
+                        <span id="mobile-instructions" class="hidden">
+                            <strong>מצב נתיבים פעיל!</strong> לחצו על צמתים ברצף כדי לבנות נתיב. 
+                            לחיצה חוזרת על צומת מבטלת את הסימון. לחצו על עלה כדי להשלים נתיב. 
+                            לחצו על "יציאה ממצב נתיבים" כדי לחזור למצב עריכה רגיל.
+                        </span>
+                    </div>
+                </div>
+                <div id="tree-display" class="min-h-96 bg-gray-50 rounded-lg p-4 relative border-2 border-gray-200" style="max-height: 600px; overflow: auto;">
+                    <div id="tree-container" class="relative" style="transform-origin: 0 0; min-width: 1200px; min-height: 800px;">
+                        <svg id="tree-svg" width="1200" height="800" class="block">
+                            <!-- Tree will be drawn here -->
+                        </svg>
+                    </div>
+                    <div id="empty-tree-message" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
+                        <div class="text-6xl mb-4">🌱</div>
+                        <p class="text-lg">העץ שלכם יופיע כאן</p>
+                        <p class="text-sm">בחרו נושא ולחצו על "התחל עץ חדש"</p>
+                    </div>
+                </div>
+                <div id="path-info" class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg hidden">
+                    <h3 class="font-bold text-yellow-800 mb-2">🎯 נתיב מסומן</h3>
+                    <div id="path-details" class="text-yellow-700"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div id="results-panel" class="bg-white rounded-2xl shadow-lg p-6 hidden">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">📊 תוצאות</h2>
+            <div id="results-content" class="space-y-4">
+                <!-- Results will appear here -->
+            </div>
+        </div>
+
+        <!-- Node Edit Modal -->
+        <div id="node-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">✏️ עריכת צומת</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">שם הצומת:</label>
+                        <input type="text" id="node-name-input" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    </div>
+                    <div id="branches-container">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ענפים:</label>
+                        <div class="text-xs text-blue-600 mb-3 bg-blue-50 p-2 rounded">
+                            💡 <strong>טיפ:</strong> ניתן להזין הסתברויות כעשרוני (0.5) או כשבר (1/2, 3/4, וכו')
+                        </div>
+                        <!-- Branch inputs will be added here -->
+                    </div>
+                    <button id="add-branch" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all">
+                        הוסף ענף
+                    </button>
+                </div>
+                <div class="flex gap-2 mt-6">
+                    <button id="save-node" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1">
+                        שמור
+                    </button>
+                    <button id="cancel-edit" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1">
+                        ביטול
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tooltip -->
+        <div id="tooltip" class="node-tooltip"></div>
+    </div>
+
+    <script>
+        class ProbabilityTree {
+            constructor() {
+                this.nodes = new Map();
+                this.edges = [];
+                this.currentNodeId = 0;
+                this.selectedNode = null;
+                this.treeName = '';
+                this.treeTopic = '';
+                this.zoomLevel = 1;
+                this.collapsedNodes = new Set();
+                this.highlightedPaths = []; // Array of complete paths with colors
+                this.currentPathSelection = []; // Current path being built
+                this.selectedColor = '#f59e0b'; // Default color for new paths
+                this.pathModeActive = false; // For mobile path selection
+                
+                // Drag and drop state
+                this.isDragging = false;
+                this.draggedNode = null;
+                this.dragOffset = { x: 0, y: 0 };
+                this.lastMousePos = { x: 0, y: 0 };
+                this.hasBeenDragged = false;
+                
+                // Questions system
+                this.currentQuestionIndex = 0;
+                this.currentQuestionSet = [];
+                this.questionsVisible = false;
+                
+                this.initializeEventListeners();
+                this.initializeQuestions();
+            }
+
+            initializeQuestions() {
+                this.coinQuestions = [
+                    {
+                        question: "מה ההסתברות שיצא פלי ופלי בשתי הטלות?",
+                        answer: "1/4 = 0.25 = 25%",
+                        explanation: "P(פלי ופלי) = P(פלי) × P(פלי) = 1/2 × 1/2 = 1/4"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא עץ ועץ בשתי הטלות?",
+                        answer: "1/4 = 0.25 = 25%",
+                        explanation: "P(עץ ועץ) = P(עץ) × P(עץ) = 1/2 × 1/2 = 1/4"
+                    },
+                    {
+                        question: "מה ההסתברות שיצאו שני צדדים זהים?",
+                        answer: "1/2 = 0.5 = 50%",
+                        explanation: "שני צדדים זהים = (עץ ועץ) או (פלי ופלי) = 1/4 + 1/4 = 1/2"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא עץ בהטלה הראשונה?",
+                        answer: "1/2 = 0.5 = 50%",
+                        explanation: "בכל הטלה יש 50% סיכוי לעץ ו-50% סיכוי לפלי"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא לפחות עץ אחד בשתי הטלות?",
+                        answer: "3/4 = 0.75 = 75%",
+                        explanation: "לפחות עץ אחד = 1 - P(פלי ופלי) = 1 - 1/4 = 3/4"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא עץ בהטלה השנייה?",
+                        answer: "1/2 = 0.5 = 50%",
+                        explanation: "ההטלה השנייה עצמאית מהראשונה, לכן P(עץ) = 1/2"
+                    },
+                    {
+                        question: "מה ההסתברות שיצאו שני צדדים שונים?",
+                        answer: "1/2 = 0.5 = 50%",
+                        explanation: "צדדים שונים = (עץ ופלי) או (פלי ועץ) = 1/4 + 1/4 = 1/2"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא עץ ופלי (בסדר הזה)?",
+                        answer: "1/4 = 0.25 = 25%",
+                        explanation: "P(עץ ופלי) = P(עץ) × P(פלי) = 1/2 × 1/2 = 1/4"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא פלי בלפחות אחת מההטלות?",
+                        answer: "3/4 = 0.75 = 75%",
+                        explanation: "לפחות פלי אחד = 1 - P(עץ ועץ) = 1 - 1/4 = 3/4"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא פלי ועץ (בסדר הזה)?",
+                        answer: "1/4 = 0.25 = 25%",
+                        explanation: "P(פלי ועץ) = P(פלי) × P(עץ) = 1/2 × 1/2 = 1/4"
+                    }
+                ];
+
+                this.diceQuestions = [
+                    {
+                        question: "מה ההסתברות שיצא המספר 3?",
+                        answer: "1/6 ≈ 0.167 = 16.7%",
+                        explanation: "בקובייה יש 6 פאות שוות, לכן P(3) = 1/6"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא מספר זוגי?",
+                        answer: "1/2 = 0.5 = 50%",
+                        explanation: "מספרים זוגיים: 2, 4, 6. לכן P(זוגי) = 3/6 = 1/2"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא מספר גדול מ-4?",
+                        answer: "1/3 ≈ 0.333 = 33.3%",
+                        explanation: "מספרים גדולים מ-4: 5, 6. לכן P(>4) = 2/6 = 1/3"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא מספר קטן מ-3?",
+                        answer: "1/3 ≈ 0.333 = 33.3%",
+                        explanation: "מספרים קטנים מ-3: 1, 2. לכן P(<3) = 2/6 = 1/3"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא מספר אי-זוגי?",
+                        answer: "1/2 = 0.5 = 50%",
+                        explanation: "מספרים אי-זוגיים: 1, 3, 5. לכן P(אי-זוגי) = 3/6 = 1/2"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא 1 או 6?",
+                        answer: "1/3 ≈ 0.333 = 33.3%",
+                        explanation: "P(1 או 6) = P(1) + P(6) = 1/6 + 1/6 = 2/6 = 1/3"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא מספר בין 2 ל-5 (כולל)?",
+                        answer: "2/3 ≈ 0.667 = 66.7%",
+                        explanation: "מספרים בין 2-5: 2, 3, 4, 5. לכן P(2-5) = 4/6 = 2/3"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא מספר שאינו 4?",
+                        answer: "5/6 ≈ 0.833 = 83.3%",
+                        explanation: "P(לא 4) = 1 - P(4) = 1 - 1/6 = 5/6"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא מספר גדול או שווה ל-5?",
+                        answer: "1/3 ≈ 0.333 = 33.3%",
+                        explanation: "מספרים ≥5: 5, 6. לכן P(≥5) = 2/6 = 1/3"
+                    },
+                    {
+                        question: "מה ההסתברות שיצא מספר קטן או שווה ל-2?",
+                        answer: "1/3 ≈ 0.333 = 33.3%",
+                        explanation: "מספרים ≤2: 1, 2. לכן P(≤2) = 2/6 = 1/3"
+                    }
+                ];
+            }
+
+            togglePathMode() {
+                this.pathModeActive = !this.pathModeActive;
+                const button = document.getElementById('toggle-path-mode');
+                const desktopInstructions = document.getElementById('desktop-instructions');
+                const mobileInstructions = document.getElementById('mobile-instructions');
+                
+                if (this.pathModeActive) {
+                    button.textContent = '📱 יציאה ממצב נתיבים';
+                    button.classList.remove('bg-pink-500', 'hover:bg-pink-600');
+                    button.classList.add('bg-red-500', 'hover:bg-red-600');
+                    desktopInstructions.classList.add('hidden');
+                    mobileInstructions.classList.remove('hidden');
+                    
+                    // Show notification
+                    alert('📱 מצב נתיבים פעיל!\n\nעכשיו תוכלו ללחוץ על צמתים כדי לבנות נתיבים בלי להחזיק Shift.\n\nלחצו שוב על הכפתור כדי לחזור למצב רגיל.');
+                } else {
+                    button.textContent = '📱 מצב נתיבים';
+                    button.classList.remove('bg-red-500', 'hover:bg-red-600');
+                    button.classList.add('bg-pink-500', 'hover:bg-pink-600');
+                    desktopInstructions.classList.remove('hidden');
+                    mobileInstructions.classList.add('hidden');
+                    
+                    // Clear current path selection when exiting path mode
+                    this.currentPathSelection = [];
+                    this.updatePathHighlighting();
+                }
+            }
+
+            selectColor(color) {
+                this.selectedColor = color;
+                
+                // Update visual indicator
+                document.querySelectorAll('.color-btn').forEach(btn => {
+                    btn.classList.remove('border-black');
+                    btn.classList.add('border-gray-300');
+                });
+                
+                document.querySelector(`[data-color="${color}"]`).classList.remove('border-gray-300');
+                document.querySelector(`[data-color="${color}"]`).classList.add('border-black');
+                
+                // Update text indicator
+                const colorNames = {
+                    '#f59e0b': 'כתום',
+                    '#ef4444': 'אדום',
+                    '#10b981': 'ירוק',
+                    '#3b82f6': 'כחול',
+                    '#8b5cf6': 'סגול',
+                    '#f97316': 'כתום כהה',
+                    '#06b6d4': 'טורקיז',
+                    '#84cc16': 'ירוק בהיר'
+                };
+                
+                document.getElementById('selected-color-indicator').textContent = `צבע נבחר: ${colorNames[color]}`;
+            }
+
+            startQuestions(type) {
+                this.currentQuestionSet = type === 'coin' ? [...this.coinQuestions] : [...this.diceQuestions];
+                this.shuffleArray(this.currentQuestionSet);
+                this.currentQuestionIndex = 0;
+                this.questionsVisible = true;
+                
+                document.getElementById('questions-panel').classList.remove('hidden');
+                this.displayCurrentQuestion();
+            }
+
+            shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+
+            displayCurrentQuestion() {
+                if (this.currentQuestionSet.length === 0) return;
+                
+                const question = this.currentQuestionSet[this.currentQuestionIndex];
+                document.getElementById('question-text').textContent = question.question;
+                document.getElementById('answer-text').innerHTML = `<strong>${question.answer}</strong><br><em>${question.explanation}</em>`;
+                document.getElementById('question-answer').classList.add('hidden');
+            }
+
+            nextQuestion() {
+                this.currentQuestionIndex = (this.currentQuestionIndex + 1) % this.currentQuestionSet.length;
+                this.displayCurrentQuestion();
+            }
+
+            showAnswer() {
+                document.getElementById('question-answer').classList.remove('hidden');
+            }
+
+            closeQuestions() {
+                document.getElementById('questions-panel').classList.add('hidden');
+                this.questionsVisible = false;
+            }
+
+            selectTopic(topic) {
+                // Remove previous selection
+                document.querySelectorAll('.topic-button').forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+                
+                // Add selection to clicked topic
+                document.getElementById(`topic-${topic}`).classList.add('selected');
+                
+                // Set topic
+                this.selectedTopic = topic;
+                if (topic === 'coin') {
+                    this.treeTopic = 'הטלת מטבע';
+                } else if (topic === 'dice') {
+                    this.treeTopic = 'הטלת קובייה';
+                }
+            }
+
+            initializeEventListeners() {
+                // Toggle theory panel
+                document.getElementById('toggle-theory').addEventListener('click', () => {
+                    const panel = document.getElementById('theory-panel');
+                    const button = document.getElementById('toggle-theory');
+                    
+                    if (panel.classList.contains('hidden')) {
+                        panel.classList.remove('hidden');
+                        button.textContent = '📚 הסתר מידע חשוב';
+                    } else {
+                        panel.classList.add('hidden');
+                        button.textContent = '📚 מידע חשוב - תיאוריה ודוגמאות';
+                    }
+                });
+
+                // Topic selection
+                document.getElementById('topic-coin').addEventListener('click', () => this.selectTopic('coin'));
+                document.getElementById('topic-dice').addEventListener('click', () => this.selectTopic('dice'));
+
+                // Tree controls
+                document.getElementById('start-tree').addEventListener('click', () => this.startNewTree());
+                document.getElementById('clear-tree').addEventListener('click', () => this.clearTree());
+
+                // Zoom controls
+                document.getElementById('zoom-in').addEventListener('click', () => this.zoomIn());
+                document.getElementById('zoom-out').addEventListener('click', () => this.zoomOut());
+                document.getElementById('clear-path').addEventListener('click', () => this.clearHighlightedPath());
+                document.getElementById('auto-complete').addEventListener('click', () => this.autoCompleteTree());
+                document.getElementById('toggle-path-mode').addEventListener('click', () => this.togglePathMode());
+
+                // Modal controls
+                document.getElementById('save-node').addEventListener('click', () => this.saveNode());
+                document.getElementById('cancel-edit').addEventListener('click', () => this.closeModal());
+                document.getElementById('add-branch').addEventListener('click', () => this.addBranchInput());
+
+                // Close modal when clicking outside
+                document.getElementById('node-modal').addEventListener('click', (e) => {
+                    if (e.target.id === 'node-modal') {
+                        this.closeModal();
+                    }
+                });
+
+                // Color selection for paths
+                document.querySelectorAll('.color-btn').forEach(btn => {
+                    btn.addEventListener('click', () => this.selectColor(btn.dataset.color));
+                });
+
+                // Questions controls
+                document.getElementById('coin-questions').addEventListener('click', () => this.startQuestions('coin'));
+                document.getElementById('dice-questions').addEventListener('click', () => this.startQuestions('dice'));
+                document.getElementById('next-question').addEventListener('click', () => this.nextQuestion());
+                document.getElementById('show-answer').addEventListener('click', () => this.showAnswer());
+                document.getElementById('close-questions').addEventListener('click', () => this.closeQuestions());
+
+                // Drag and drop event listeners
+                const treeContainer = document.getElementById('tree-container');
+                treeContainer.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                treeContainer.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                treeContainer.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+                treeContainer.addEventListener('mouseleave', (e) => this.handleMouseUp(e));
+                
+                // Prevent context menu on right click to avoid interference
+                treeContainer.addEventListener('contextmenu', (e) => e.preventDefault());
+            }
+
+            startNewTree() {
+                if (!this.selectedTopic) {
+                    alert('אנא בחרו נושא לעץ תחילה!');
+                    return;
+                }
+                
+                this.clearTree();
+                this.createRootNode();
+                this.hideEmptyMessage();
+                this.drawTree();
+            }
+
+            createRootNode() {
+                const rootNode = {
+                    id: this.currentNodeId++,
+                    name: 'התחלה',
+                    x: 400,
+                    y: 50,
+                    children: [],
+                    parent: null,
+                    probability: 1.0
+                };
+                
+                this.nodes.set(rootNode.id, rootNode);
+            }
+
+            clearTree() {
+                this.nodes.clear();
+                this.edges = [];
+                this.currentNodeId = 0;
+                this.selectedNode = null;
+                this.hasBeenDragged = false;
+                this.wasDragging = false;
+                this.showEmptyMessage();
+                this.hideResults();
+                
+                const svg = document.getElementById('tree-svg');
+                svg.innerHTML = '';
+            }
+
+            showEmptyMessage() {
+                document.getElementById('empty-tree-message').style.display = 'block';
+            }
+
+            hideEmptyMessage() {
+                document.getElementById('empty-tree-message').style.display = 'none';
+            }
+
+            hideResults() {
+                document.getElementById('results-panel').classList.add('hidden');
+            }
+
+            drawTree() {
+                const svg = document.getElementById('tree-svg');
+                svg.innerHTML = '';
+
+                if (this.nodes.size === 0) {
+                    this.showEmptyMessage();
+                    return;
+                }
+
+                this.hideEmptyMessage();
+                // Only auto-layout if nodes don't have custom positions
+                if (!this.hasCustomPositions()) {
+                    this.layoutNodes();
+                }
+                this.drawEdges(svg);
+                this.drawNodes(svg);
+            }
+
+            layoutNodes() {
+                const levels = new Map();
+                
+                // Group visible nodes by level
+                for (const [id, node] of this.nodes) {
+                    if (this.isNodeVisible(node)) {
+                        const level = this.getNodeLevel(node);
+                        if (!levels.has(level)) {
+                            levels.set(level, []);
+                        }
+                        levels.get(level).push(node);
+                    }
+                }
+
+                // Position nodes with better spacing
+                for (const [level, levelNodes] of levels) {
+                    const y = 80 + level * 150;
+                    const minSpacing = 120;
+                    const totalWidth = Math.max(800, levelNodes.length * minSpacing);
+                    const spacing = totalWidth / (levelNodes.length + 1);
+                    
+                    levelNodes.forEach((node, index) => {
+                        node.x = 100 + spacing * (index + 1);
+                        node.y = y;
+                    });
+                }
+            }
+
+            isNodeVisible(node) {
+                if (node.parent === null) return true;
+                
+                let current = node;
+                while (current.parent !== null) {
+                    const parent = this.nodes.get(current.parent);
+                    if (this.collapsedNodes.has(parent.id)) {
+                        return false;
+                    }
+                    current = parent;
+                }
+                return true;
+            }
+
+            getNodeLevel(node) {
+                let level = 0;
+                let current = node;
+                while (current.parent !== null) {
+                    level++;
+                    current = this.nodes.get(current.parent);
+                }
+                return level;
+            }
+
+            drawEdges(svg) {
+                for (const [id, node] of this.nodes) {
+                    if (node.parent !== null && this.isNodeVisible(node)) {
+                        const parent = this.nodes.get(node.parent);
+                        if (!this.isNodeVisible(parent)) continue;
+                        
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        
+                        line.setAttribute('x1', parent.x);
+                        line.setAttribute('y1', parent.y + 30);
+                        line.setAttribute('x2', node.x);
+                        line.setAttribute('y2', node.y - 30);
+                        
+                        // Check if this edge is part of any highlighted path or current selection
+                        let edgeColor = '#d8b4fe'; // Default color
+                        let strokeWidth = '2';
+                        let isHighlighted = false;
+                        
+                        // Check completed paths
+                        for (let pathIndex = 0; pathIndex < this.highlightedPaths.length; pathIndex++) {
+                            const pathData = this.highlightedPaths[pathIndex];
+                            const path = pathData.path;
+                            const parentIndex = path.indexOf(parent.id);
+                            const nodeIndex = path.indexOf(node.id);
+                            
+                            if (parentIndex !== -1 && nodeIndex !== -1 && nodeIndex === parentIndex + 1) {
+                                edgeColor = pathData.color;
+                                strokeWidth = '4';
+                                isHighlighted = true;
+                                break;
+                            }
+                        }
+                        
+                        // Check current path selection (temporary highlighting) - צהוב בולט
+                        if (!isHighlighted && this.currentPathSelection.length > 0) {
+                            const parentIndex = this.currentPathSelection.indexOf(parent.id);
+                            const nodeIndex = this.currentPathSelection.indexOf(node.id);
+                            
+                            if (parentIndex !== -1 && nodeIndex !== -1 && nodeIndex === parentIndex + 1) {
+                                edgeColor = this.selectedColor; // צבע שנבחר לנתיב הנוכחי
+                                strokeWidth = '4';
+                                line.setAttribute('stroke-dasharray', '8,4');
+                                line.setAttribute('class', 'branch-line animate-pulse');
+                            }
+                        }
+                        
+                        line.setAttribute('stroke', edgeColor);
+                        line.setAttribute('stroke-width', strokeWidth);
+                        line.setAttribute('fill', 'none');
+                        line.setAttribute('class', 'branch-line');
+                        
+                        svg.appendChild(line);
+
+                        // Add probability label with fraction
+                        if (node.probability !== undefined) {
+                            const midX = (parent.x + node.x) / 2;
+                            const midY = (parent.y + node.y) / 2;
+                            
+                            // Background for better readability
+                            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                            rect.setAttribute('x', midX - 25);
+                            rect.setAttribute('y', midY - 15);
+                            rect.setAttribute('width', 50);
+                            rect.setAttribute('height', 20);
+                            rect.setAttribute('fill', 'white');
+                            rect.setAttribute('stroke', '#d8b4fe');
+                            rect.setAttribute('stroke-width', '1');
+                            rect.setAttribute('rx', '5');
+                            svg.appendChild(rect);
+                            
+                            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            text.setAttribute('x', midX);
+                            text.setAttribute('y', midY - 2);
+                            text.setAttribute('text-anchor', 'middle');
+                            text.setAttribute('class', 'text-xs font-bold fill-purple-700');
+                            
+                            // Show both decimal and fraction
+                            const fraction = this.decimalToFraction(node.probability);
+                            text.textContent = `${node.probability.toFixed(2)}`;
+                            svg.appendChild(text);
+                            
+                            // Add fraction below
+                            const fractionText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            fractionText.setAttribute('x', midX);
+                            fractionText.setAttribute('y', midY + 8);
+                            fractionText.setAttribute('text-anchor', 'middle');
+                            fractionText.setAttribute('class', 'text-xs fill-purple-600');
+                            fractionText.textContent = fraction;
+                            svg.appendChild(fractionText);
+                        }
+                    }
+                }
+            }
+
+            drawNodes(svg) {
+                for (const [id, node] of this.nodes) {
+                    if (!this.isNodeVisible(node)) continue;
+                    
+                    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    
+                    // Node circle
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', node.x);
+                    circle.setAttribute('cy', node.y);
+                    circle.setAttribute('r', 30);
+                    
+                    // Color based on node type and highlight status
+                    let fillColor = node.children.length === 0 ? '#10b981' : '#8b5cf6';
+                    let strokeColor = '#6b21a8';
+                    let strokeWidth = '2';
+                    
+                    // Check if node is part of any completed highlighted path
+                    let nodeHighlightColor = null;
+                    for (let pathIndex = 0; pathIndex < this.highlightedPaths.length; pathIndex++) {
+                        const pathData = this.highlightedPaths[pathIndex];
+                        if (pathData.path.includes(id)) {
+                            nodeHighlightColor = pathData.color;
+                            break;
+                        }
+                    }
+                    
+                    // Check if node is part of current selection
+                    const isInCurrentSelection = this.currentPathSelection.includes(id);
+                    
+                    if (nodeHighlightColor) {
+                        fillColor = nodeHighlightColor;
+                        strokeColor = nodeHighlightColor;
+                        strokeWidth = '4';
+                    } else if (isInCurrentSelection) {
+                        fillColor = this.selectedColor; // צבע שנבחר לצמתים בנתיב הנוכחי
+                        strokeColor = this.selectedColor;
+                        strokeWidth = '4';
+                        circle.setAttribute('class', 'tree-node animate-pulse');
+                    }
+                    
+                    circle.setAttribute('fill', fillColor);
+                    circle.setAttribute('stroke', strokeColor);
+                    circle.setAttribute('stroke-width', strokeWidth);
+                    circle.setAttribute('class', 'tree-node');
+                    
+                    // Add click events - only if not dragging
+                    circle.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        // Don't handle click if we just finished dragging
+                        if (this.wasDragging) {
+                            this.wasDragging = false;
+                            return;
+                        }
+                        
+                        if (e.shiftKey || this.pathModeActive) {
+                            this.togglePathHighlight(id);
+                        } else {
+                            this.editNode(id);
+                        }
+                    });
+                    
+                    // Add data attribute for drag identification
+                    circle.setAttribute('data-node-id', id);
+                    
+                    g.appendChild(circle);
+                    
+                    // Node label
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    text.setAttribute('x', node.x);
+                    text.setAttribute('y', node.y + 5);
+                    text.setAttribute('text-anchor', 'middle');
+                    text.setAttribute('class', 'text-sm font-bold fill-white pointer-events-none');
+                    text.textContent = node.name.length > 6 ? node.name.substring(0, 6) + '...' : node.name;
+                    
+                    g.appendChild(text);
+                    
+                    // Collapse/expand button for nodes with children
+                    if (node.children.length > 0) {
+                        const button = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        button.setAttribute('cx', node.x + 35);
+                        button.setAttribute('cy', node.y - 35);
+                        button.setAttribute('r', 12);
+                        button.setAttribute('fill', '#ffffff');
+                        button.setAttribute('stroke', '#8b5cf6');
+                        button.setAttribute('stroke-width', '2');
+                        button.setAttribute('class', 'tree-node');
+                        
+                        const buttonText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        buttonText.setAttribute('x', node.x + 35);
+                        buttonText.setAttribute('y', node.y - 30);
+                        buttonText.setAttribute('text-anchor', 'middle');
+                        buttonText.setAttribute('class', 'text-xs font-bold fill-purple-600 pointer-events-none');
+                        buttonText.textContent = this.collapsedNodes.has(id) ? '+' : '−';
+                        
+                        button.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.toggleNodeCollapse(id);
+                        });
+                        
+                        g.appendChild(button);
+                        g.appendChild(buttonText);
+                    }
+                    
+                    svg.appendChild(g);
+                }
+            }
+
+            editNode(nodeId) {
+                this.selectedNode = nodeId;
+                const node = this.nodes.get(nodeId);
+                
+                // בדיקה אם זה צומת ריק בקובייה - הצעה ליצירה מהירה
+                if (this.selectedTopic === 'dice' && node.children.length === 0 && node.parent !== null) {
+                    const shouldCreateDiceOutcomes = confirm(
+                        '🎲 יצירה מהירה לקובייה\n\n' +
+                        'האם תרצו ליצור אוטומטית את כל 6 התוצאות האפשריות?\n' +
+                        '(1, 2, 3, 4, 5, 6 - כל אחת עם הסתברות 1/6)\n\n' +
+                        'זה יחסוך לכם זמן רב!'
+                    );
+                    
+                    if (shouldCreateDiceOutcomes) {
+                        this.createDiceOutcomes(nodeId);
+                        this.drawTree();
+                        this.updateResults();
+                        return;
+                    }
+                }
+                
+                // בדיקה אם זה צומת ריק במטבע - הצעה ליצירה מהירה
+                if (this.selectedTopic === 'coin' && node.children.length === 0 && node.parent !== null) {
+                    const shouldCreateCoinOutcomes = confirm(
+                        '🪙 יצירה מהירה למטבע\n\n' +
+                        'האם תרצו ליצור אוטומטית את שתי התוצאות?\n' +
+                        '(עץ ופלי - כל אחת עם הסתברות 1/2)\n\n' +
+                        'זה יחסוך לכם זמן!'
+                    );
+                    
+                    if (shouldCreateCoinOutcomes) {
+                        this.createCoinOutcomes(nodeId);
+                        this.drawTree();
+                        this.updateResults();
+                        return;
+                    }
+                }
+                
+                document.getElementById('node-name-input').value = node.name;
+                
+                // Clear existing branch inputs
+                const container = document.getElementById('branches-container');
+                const existingInputs = container.querySelectorAll('.branch-input');
+                existingInputs.forEach(input => input.remove());
+                
+                // Add branch inputs for existing children
+                node.children.forEach(childId => {
+                    const child = this.nodes.get(childId);
+                    this.addBranchInput(child.name, child.probability.toString());
+                });
+                
+                // Update add branch button state
+                this.updateAddBranchButton();
+                
+                // Show modal
+                document.getElementById('node-modal').classList.remove('hidden');
+                document.getElementById('node-modal').classList.add('flex');
+            }
+
+            getMaxBranchesForTopic() {
+                if (this.selectedTopic === 'coin') {
+                    return 2; // עץ ופלי
+                } else if (this.selectedTopic === 'dice') {
+                    return 6; // 1-6
+                }
+                return 10; // Default fallback
+            }
+
+            createBranchNameInput(selectedName = '', branchIndex = 0) {
+                if (this.selectedTopic === 'coin') {
+                    return `
+                        <select class="branch-name-select flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">בחר אפשרות...</option>
+                            <option value="עץ" ${selectedName === 'עץ' ? 'selected' : ''}>עץ</option>
+                            <option value="פלי" ${selectedName === 'פלי' ? 'selected' : ''}>פלי</option>
+                        </select>
+                    `;
+                } else if (this.selectedTopic === 'dice') {
+                    return `
+                        <select class="branch-name-select flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">בחר מספר...</option>
+                            <option value="1" ${selectedName === '1' ? 'selected' : ''}>1</option>
+                            <option value="2" ${selectedName === '2' ? 'selected' : ''}>2</option>
+                            <option value="3" ${selectedName === '3' ? 'selected' : ''}>3</option>
+                            <option value="4" ${selectedName === '4' ? 'selected' : ''}>4</option>
+                            <option value="5" ${selectedName === '5' ? 'selected' : ''}>5</option>
+                            <option value="6" ${selectedName === '6' ? 'selected' : ''}>6</option>
+                        </select>
+                    `;
+                } else {
+                    // Default input for other topics
+                    return `
+                        <input type="text" placeholder="שם הענף" value="${selectedName}" 
+                               class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    `;
+                }
+            }
+
+            updateAddBranchButton() {
+                const container = document.getElementById('branches-container');
+                const addButton = document.getElementById('add-branch');
+                const existingBranches = container.querySelectorAll('.branch-input').length;
+                const maxBranches = this.getMaxBranchesForTopic();
+                
+                if (existingBranches >= maxBranches) {
+                    addButton.disabled = true;
+                    addButton.classList.add('opacity-50', 'cursor-not-allowed');
+                    const topicName = this.selectedTopic === 'coin' ? 'מטבע' : 'קובייה';
+                    addButton.textContent = `🚫 הגעתם למקסימום (${maxBranches} ענפים ל${topicName})`;
+                } else {
+                    addButton.disabled = false;
+                    addButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                    addButton.textContent = '➕ הוסף ענף';
+                }
+            }
+
+            addBranchInput(name = '', probability = '') {
+                const container = document.getElementById('branches-container');
+                const existingBranches = container.querySelectorAll('.branch-input').length;
+                
+                // Check branch limits based on topic
+                const maxBranches = this.getMaxBranchesForTopic();
+                if (existingBranches >= maxBranches) {
+                    const topicName = this.selectedTopic === 'coin' ? 'מטבע' : 'קובייה';
+                    const maxText = this.selectedTopic === 'coin' ? 'שני' : 'שישה';
+                    alert(`⚠️ הגבלת ענפים\n\nב${topicName} יש רק ${maxText} אפשרויות!\nלא ניתן להוסיף יותר מ-${maxBranches} ענפים.`);
+                    return;
+                }
+                
+                const branchDiv = document.createElement('div');
+                branchDiv.className = 'branch-input flex gap-2 mb-2';
+                
+                const probValue = typeof probability === 'number' ? probability.toString() : probability;
+                
+                // Create branch name selection based on topic
+                const branchNameHtml = this.createBranchNameInput(name, existingBranches);
+                
+                branchDiv.innerHTML = `
+                    ${branchNameHtml}
+                    <input type="text" placeholder="הסתברות (0.5 או 1/2)" value="${probValue}" 
+                           class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+                           title="ניתן להזין עשרוני (0.5) או שבר (1/2)">
+                    <button type="button" class="bg-red-500 hover:bg-red-600 text-white px-2 py-2 rounded-lg text-xs">
+                        X
+                    </button>
+                `;
+                
+                // Add delete functionality
+                branchDiv.querySelector('button').addEventListener('click', () => {
+                    branchDiv.remove();
+                    this.updateAddBranchButton();
+                });
+                
+                // Add real-time validation with educational tooltips
+                const probInput = branchDiv.querySelector('input[type="text"]:last-of-type');
+                probInput.addEventListener('input', () => {
+                    const value = probInput.value.trim();
+                    const parsed = this.parseProbability(value);
+                    
+                    // Clear previous styling and tooltips
+                    probInput.classList.remove('border-red-500', 'bg-red-50', 'border-green-500', 'bg-green-50', 'border-yellow-500', 'bg-yellow-50');
+                    probInput.removeAttribute('title');
+                    
+                    if (value === '') {
+                        // Empty - neutral state
+                        return;
+                    }
+                    
+                    if (parsed === null) {
+                        // Invalid format
+                        probInput.classList.add('border-red-500', 'bg-red-50');
+                        probInput.setAttribute('title', '❌ פורמט שגוי! השתמשו ב: 0.5 או 1/2');
+                    } else if (parsed < 0) {
+                        // Negative probability
+                        probInput.classList.add('border-red-500', 'bg-red-50');
+                        probInput.setAttribute('title', `❌ הסתברות שלילית! (${parsed})\nהסתברות חייבת להיות ≥ 0`);
+                    } else if (parsed > 1) {
+                        // Probability > 1
+                        probInput.classList.add('border-red-500', 'bg-red-50');
+                        let tooltip = `❌ הסתברות גדולה מ-1! (${parsed} = ${(parsed * 100).toFixed(1)}%)\n`;
+                        if (this.selectedTopic === 'dice') {
+                            tooltip += 'בקובייה: כל פאה = 1/6 ≈ 0.167 (16.7%)';
+                        } else if (this.selectedTopic === 'coin') {
+                            tooltip += 'במטבע: כל צד = 1/2 = 0.5 (50%)';
+                        }
+                        probInput.setAttribute('title', tooltip);
+                    } else if (parsed === 1) {
+                        // Probability = 1 (warning)
+                        probInput.classList.add('border-yellow-500', 'bg-yellow-50');
+                        probInput.setAttribute('title', '⚠️ הסתברות = 1 (100%)\nזה אומר שהאירוע הזה בטוח לקרות!\nהאם זה מה שרציתם?');
+                    } else {
+                        // Valid probability
+                        probInput.classList.add('border-green-500', 'bg-green-50');
+                        const percentage = (parsed * 100).toFixed(1);
+                        const fraction = this.decimalToFraction(parsed);
+                        probInput.setAttribute('title', `✅ תקין! ${parsed} = ${fraction} = ${percentage}%`);
+                    }
+                });
+                
+                // No additional handling needed for simplified selectors
+                
+                container.appendChild(branchDiv);
+                this.updateAddBranchButton();
+            }
+
+            saveNode() {
+                if (this.selectedNode === null) return;
+                
+                const node = this.nodes.get(this.selectedNode);
+                const newName = document.getElementById('node-name-input').value.trim();
+                
+                if (newName) {
+                    node.name = newName;
+                }
+                
+                // Collect branch data and validate probabilities
+                const branchInputs = document.querySelectorAll('.branch-input');
+                const branchData = [];
+                let totalProbability = 0;
+                let hasErrors = false;
+                let errorMessages = [];
+                
+                // Clear previous error styling
+                branchInputs.forEach(branchDiv => {
+                    const probInput = branchDiv.querySelector('input[type="text"]:last-of-type');
+                    probInput.classList.remove('border-red-500', 'bg-red-50');
+                });
+                
+                branchInputs.forEach(branchDiv => {
+                    const selectElement = branchDiv.querySelector('.branch-name-select');
+                    const probInput = branchDiv.querySelector('input[type="text"]:last-of-type');
+                    
+                    let branchName = '';
+                    if (selectElement) {
+                        // Using dropdown selection
+                        branchName = selectElement.value;
+                    } else {
+                        // Using regular text input (fallback)
+                        const nameInput = branchDiv.querySelector('input[type="text"]:first-of-type');
+                        branchName = nameInput ? nameInput.value.trim() : '';
+                    }
+                    
+                    const probValue = probInput.value.trim();
+                    
+                    if (branchName && probValue) {
+                        // Use enhanced validation
+                        const validation = this.validateProbabilityInput(probValue, branchName);
+                        
+                        if (!validation.isValid) {
+                            probInput.classList.add('border-red-500', 'bg-red-50');
+                            hasErrors = true;
+                            errorMessages.push(validation.message);
+                        } else {
+                            const probability = this.parseProbability(probValue);
+                            branchData.push({
+                                name: branchName,
+                                probability: probability
+                            });
+                            totalProbability += probability;
+                        }
+                    }
+                });
+                
+                // Show detailed error messages if any
+                if (hasErrors) {
+                    // Show the first error message (most detailed)
+                    alert(errorMessages[0]);
+                    return;
+                }
+
+                // Enhanced sum validation
+                if (branchData.length > 0) {
+                    const sumValidation = this.validateProbabilitySum(branchData, totalProbability);
+                    
+                    if (!sumValidation.isValid) {
+                        const shouldCorrect = confirm(sumValidation.message);
+                        
+                        if (shouldCorrect && sumValidation.canAutoFix) {
+                            // Normalize probabilities
+                            branchData.forEach(branch => {
+                                branch.probability = branch.probability / totalProbability;
+                            });
+                            
+                            // Update the input fields with corrected values
+                            branchInputs.forEach((branchDiv, index) => {
+                                if (index < branchData.length) {
+                                    const probInput = branchDiv.querySelector('input[type="text"]:last-of-type');
+                                    probInput.value = branchData[index].probability.toFixed(4);
+                                    probInput.classList.add('border-green-500', 'bg-green-50');
+                                }
+                            });
+                            
+                            let successMessage = '✅ ההסתברויות תוקנו בהצלחה!\n\n';
+                            successMessage += '📊 הערכים החדשים:\n';
+                            branchData.forEach(branch => {
+                                const percentage = (branch.probability * 100).toFixed(1);
+                                successMessage += `• ${branch.name}: ${branch.probability.toFixed(4)} (${percentage}%)\n`;
+                            });
+                            successMessage += `\n✅ סכום: ${branchData.reduce((sum, b) => sum + b.probability, 0).toFixed(4)} = 100.0%`;
+                            
+                            alert(successMessage);
+                        } else {
+                            return; // Don't save if user doesn't want correction
+                        }
+                    }
+                }
+                
+                // Remove existing children
+                node.children.forEach(childId => {
+                    this.nodes.delete(childId);
+                });
+                node.children = [];
+                
+                // Add new children from validated data
+                branchData.forEach(branch => {
+                    const childNode = {
+                        id: this.currentNodeId++,
+                        name: branch.name,
+                        x: 0,
+                        y: 0,
+                        children: [],
+                        parent: this.selectedNode,
+                        probability: branch.probability
+                    };
+                    
+                    this.nodes.set(childNode.id, childNode);
+                    node.children.push(childNode.id);
+                });
+                
+                this.closeModal();
+                this.drawTree();
+            }
+
+            closeModal() {
+                document.getElementById('node-modal').classList.add('hidden');
+                document.getElementById('node-modal').classList.remove('flex');
+                this.selectedNode = null;
+            }
+
+
+
+            getAllPaths() {
+                const paths = [];
+                const rootNode = Array.from(this.nodes.values()).find(node => node.parent === null);
+                
+                if (!rootNode) return paths;
+                
+                this.findPaths(rootNode, [], 1.0, paths);
+                return paths;
+            }
+
+            findPaths(node, currentPath, currentProbability, allPaths) {
+                const newPath = [...currentPath, node.name];
+                
+                if (node.children.length === 0) {
+                    // Leaf node - end of path
+                    allPaths.push({
+                        path: newPath,
+                        probability: currentProbability
+                    });
+                } else {
+                    // Continue to children
+                    node.children.forEach(childId => {
+                        const child = this.nodes.get(childId);
+                        this.findPaths(child, newPath, currentProbability * child.probability, allPaths);
+                    });
+                }
+            }
+
+            displayResults(paths) {
+                const resultsPanel = document.getElementById('results-panel');
+                const resultsContent = document.getElementById('results-content');
+                
+                resultsContent.innerHTML = '';
+                
+                if (paths.length === 0) {
+                    resultsContent.innerHTML = '<p class="text-gray-500">אין מסלולים להצגה</p>';
+                    resultsPanel.classList.remove('hidden');
+                    return;
+                }
+
+                // Tree info
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'bg-blue-50 p-4 rounded-lg mb-4';
+                infoDiv.innerHTML = `
+                    <h3 class="font-bold text-blue-800 mb-2">📋 פרטי העץ</h3>
+                    <p><strong>נושא:</strong> ${this.treeTopic}</p>
+                    <p><strong>מספר מסלולים:</strong> ${paths.length}</p>
+                `;
+                resultsContent.appendChild(infoDiv);
+
+                // Paths
+                const pathsDiv = document.createElement('div');
+                pathsDiv.innerHTML = '<h3 class="font-bold text-gray-800 mb-3">🛤️ כל המסלולים והסתברויותיהם:</h3>';
+                
+                paths.forEach((pathData, index) => {
+                    const pathDiv = document.createElement('div');
+                    pathDiv.className = 'bg-gray-50 p-4 rounded-lg mb-3';
+                    
+                    const pathString = pathData.path.join(' → ');
+                    const percentage = (pathData.probability * 100).toFixed(1);
+                    
+                    pathDiv.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">${pathString}</span>
+                            <span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-bold">
+                                ${percentage}%
+                            </span>
+                        </div>
+                        <div class="text-sm text-gray-600 mt-1">
+                            הסתברות: ${pathData.probability.toFixed(4)}
+                        </div>
+                    `;
+                    
+                    pathsDiv.appendChild(pathDiv);
+                });
+                
+                resultsContent.appendChild(pathsDiv);
+                
+                // Validation
+                const totalProbability = paths.reduce((sum, path) => sum + path.probability, 0);
+                const validationDiv = document.createElement('div');
+                validationDiv.className = `p-4 rounded-lg ${Math.abs(totalProbability - 1.0) < 0.01 ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`;
+                validationDiv.innerHTML = `
+                    <h3 class="font-bold mb-2">✅ בדיקת תקינות</h3>
+                    <p>סכום כל ההסתברויות: ${totalProbability.toFixed(4)}</p>
+                    <p class="text-sm mt-1">
+                        ${Math.abs(totalProbability - 1.0) < 0.01 ? 
+                            '✅ מעולה! סכום ההסתברויות שווה ל-1' : 
+                            '⚠️ שימו לב: סכום ההסתברויות צריך להיות 1'}
+                    </p>
+                `;
+                resultsContent.appendChild(validationDiv);
+                
+                resultsPanel.classList.remove('hidden');
+            }
+
+            // Zoom functions
+            zoomIn() {
+                this.zoomLevel = Math.min(this.zoomLevel * 1.2, 3);
+                this.applyZoom();
+            }
+
+            zoomOut() {
+                this.zoomLevel = Math.max(this.zoomLevel / 1.2, 0.3);
+                this.applyZoom();
+            }
+
+            resetZoom() {
+                this.zoomLevel = 1;
+                this.applyZoom();
+            }
+
+            applyZoom() {
+                const container = document.getElementById('tree-container');
+                container.style.transform = `scale(${this.zoomLevel})`;
+            }
+
+            // Node collapse/expand functions
+            toggleNodeCollapse(nodeId) {
+                if (this.collapsedNodes.has(nodeId)) {
+                    this.collapsedNodes.delete(nodeId);
+                } else {
+                    this.collapsedNodes.add(nodeId);
+                }
+                this.drawTree();
+            }
+
+            // Path highlighting functions - now supports multiple paths with improved logic
+            togglePathHighlight(nodeId) {
+                const clickedNode = this.nodes.get(nodeId);
+                
+                // Check if clicking on a node that's already in current selection - toggle it off
+                if (this.currentPathSelection.includes(nodeId)) {
+                    const nodeIndex = this.currentPathSelection.indexOf(nodeId);
+                    // Remove this node and all nodes after it in the path
+                    this.currentPathSelection = this.currentPathSelection.slice(0, nodeIndex);
+                    this.updatePathHighlighting();
+                    return;
+                }
+                
+                // Check if this node is already part of a completed path - remove that path
+                for (let i = 0; i < this.highlightedPaths.length; i++) {
+                    const pathData = this.highlightedPaths[i];
+                    if (pathData.path.includes(nodeId)) {
+                        this.highlightedPaths.splice(i, 1);
+                        this.updatePathHighlighting();
+                        this.showMultiplePathsInfo();
+                        return;
+                    }
+                }
+                
+                // If this is a root node, start a new path selection
+                if (clickedNode.parent === null) {
+                    this.currentPathSelection = [nodeId];
+                    this.updatePathHighlighting();
+                    return;
+                }
+                
+                // If we have an active path selection, try to extend it
+                if (this.currentPathSelection && this.currentPathSelection.length > 0) {
+                    const lastSelectedId = this.currentPathSelection[this.currentPathSelection.length - 1];
+                    const lastSelectedNode = this.nodes.get(lastSelectedId);
+                    
+                    // Check if the clicked node is a child of the last selected node
+                    if (lastSelectedNode.children.includes(nodeId)) {
+                        // Extend the current path
+                        this.currentPathSelection.push(nodeId);
+                        
+                        // If this is a leaf node, complete the path
+                        if (clickedNode.children.length === 0) {
+                            this.completePath();
+                        } else {
+                            this.updatePathHighlighting();
+                        }
+                        return;
+                    }
+                }
+                
+                // If clicked node is not connected to current selection, start new path from root
+                const pathToRoot = this.getPathToRoot(nodeId);
+                this.currentPathSelection = pathToRoot;
+                
+                // If this is a leaf node, complete the path immediately
+                if (clickedNode.children.length === 0) {
+                    this.completePath();
+                } else {
+                    this.updatePathHighlighting();
+                }
+            }
+
+            completePath() {
+                if (this.currentPathSelection && this.currentPathSelection.length > 1) {
+                    // Add this path to highlighted paths if it's not already there
+                    const pathExists = this.highlightedPaths.some(pathData => 
+                        this.arraysEqual(pathData.path, this.currentPathSelection)
+                    );
+                    
+                    if (!pathExists) {
+                        this.highlightedPaths.push({
+                            path: [...this.currentPathSelection],
+                            color: this.selectedColor
+                        });
+                    }
+                }
+                
+                // Clear current selection
+                this.currentPathSelection = [];
+                this.updatePathHighlighting();
+                this.showMultiplePathsInfo();
+            }
+
+            updatePathHighlighting() {
+                this.drawTree();
+            }
+
+            getPathToRoot(nodeId) {
+                const path = [];
+                let current = this.nodes.get(nodeId);
+                
+                while (current) {
+                    path.unshift(current.id);
+                    current = current.parent ? this.nodes.get(current.parent) : null;
+                }
+                
+                return path;
+            }
+
+            clearHighlightedPath() {
+                this.highlightedPaths = [];
+                this.currentPathSelection = [];
+                const pathInfo = document.getElementById('path-info');
+                if (pathInfo) {
+                    pathInfo.classList.add('hidden');
+                }
+                this.drawTree();
+                this.updateResults();
+            }
+
+            showMultiplePathsInfo() {
+                const pathInfo = document.getElementById('path-info');
+                const pathDetails = document.getElementById('path-details');
+                
+                if (this.highlightedPaths.length === 0) {
+                    pathInfo.classList.add('hidden');
+                    return;
+                }
+                
+                let infoHTML = '<div class="space-y-3">';
+                let totalProbability = 0;
+                
+                this.highlightedPaths.forEach((pathData, index) => {
+                    const pathNames = pathData.path.map(id => this.nodes.get(id).name);
+                    const pathString = pathNames.join(' → ');
+                    
+                    // Calculate path probability
+                    let probability = 1;
+                    for (let i = 1; i < pathData.path.length; i++) {
+                        const node = this.nodes.get(pathData.path[i]);
+                        probability *= node.probability;
+                    }
+                    totalProbability += probability;
+                    
+                    const fraction = this.decimalToFraction(probability);
+                    
+                    infoHTML += `
+                        <div class="bg-white p-3 rounded-lg border-2" style="border-color: ${pathData.color}">
+                            <p><strong>נתיב ${index + 1}:</strong> ${pathString}</p>
+                            <p><strong>הסתברות:</strong> ${probability.toFixed(4)} = ${fraction} = ${(probability * 100).toFixed(1)}%</p>
+                            <button onclick="tree.removeHighlightedPath(${index})" class="text-red-600 hover:text-red-800 text-sm mt-1">
+                                🗑️ הסר נתיב זה
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                if (this.highlightedPaths.length > 1) {
+                    infoHTML += `
+                        <div class="bg-blue-50 p-3 rounded-lg border-2 border-blue-300">
+                            <p><strong>סה"כ הסתברות של כל הנתיבים:</strong> ${totalProbability.toFixed(4)} = ${(totalProbability * 100).toFixed(1)}%</p>
+                        </div>
+                    `;
+                }
+                
+                infoHTML += '</div>';
+                infoHTML += '<p class="text-sm mt-3 text-gray-600">💡 <strong>טיפ:</strong> החזיקו Shift ולחצו על צמתים ברצף כדי לבנות נתיב. לחיצה חוזרת מבטלת סימון. לחצו על עלה כדי להשלים נתיב.</p>';
+                
+                pathDetails.innerHTML = infoHTML;
+                pathInfo.classList.remove('hidden');
+            }
+
+            removeHighlightedPath(index) {
+                this.highlightedPaths.splice(index, 1);
+                this.updatePathHighlighting();
+                this.showMultiplePathsInfo();
+            }
+
+
+
+            // Parse probability from string (supports decimals and fractions)
+            parseProbability(value) {
+                if (!value || value.trim() === '') return null;
+                
+                value = value.trim();
+                
+                // Check if it's a fraction (contains /)
+                if (value.includes('/')) {
+                    const parts = value.split('/');
+                    if (parts.length !== 2) return null;
+                    
+                    const numerator = parseFloat(parts[0].trim());
+                    const denominator = parseFloat(parts[1].trim());
+                    
+                    if (isNaN(numerator) || isNaN(denominator) || denominator === 0) {
+                        return null;
+                    }
+                    
+                    return numerator / denominator;
+                }
+                
+                // Try to parse as decimal
+                const decimal = parseFloat(value);
+                if (isNaN(decimal)) return null;
+                
+                return decimal;
+            }
+
+            // Auto-complete tree function
+            autoCompleteTree() {
+                if (!this.selectedTopic) {
+                    alert('אנא בחרו נושא לעץ תחילה!');
+                    return;
+                }
+                
+                // Clear everything and build perfect tree immediately
+                this.clearTree();
+                
+                if (this.selectedTopic === 'coin') {
+                    this.buildPerfectCoinTree();
+                } else if (this.selectedTopic === 'dice') {
+                    this.buildPerfectDiceTree();
+                }
+                
+                this.hideEmptyMessage();
+                this.drawTree();
+                this.updateResults();
+                
+                const resultMessage = this.selectedTopic === 'coin' ? 
+                    '✅ עץ מטבע מושלם נבנה!\n\n🪙 המבנה:\n• הטלה ראשונה: עץ/פלי (כל אחד 50%)\n• הטלה שנייה: עץ/פלי מכל תוצאה (כל אחד 50%)\n• 4 תוצאות סופיות: עץ-עץ, עץ-פלי, פלי-עץ, פלי-פלי\n• כל תוצאה סופית: 25% הסתברות' :
+                    '✅ עץ קובייה מושלם נבנה!\n\n🎲 המבנה:\n• הטלה אחת עם 6 תוצאות\n• תוצאות: 1, 2, 3, 4, 5, 6\n• כל תוצאה: 1/6 ≈ 16.7% הסתברות\n• סכום: 6 × (1/6) = 100%';
+                
+                alert(resultMessage);
+            }
+            
+            buildPerfectCoinTree() {
+                // Reset node counter
+                this.currentNodeId = 0;
+                
+                // Create root node
+                const rootNode = {
+                    id: this.currentNodeId++,
+                    name: 'הטלה ראשונה',
+                    x: 400,
+                    y: 80,
+                    children: [],
+                    parent: null,
+                    probability: 1.0
+                };
+                
+                this.nodes.set(rootNode.id, rootNode);
+                
+                // First flip outcomes
+                const heads1 = {
+                    id: this.currentNodeId++,
+                    name: 'עץ',
+                    x: 250,
+                    y: 200,
+                    children: [],
+                    parent: rootNode.id,
+                    probability: 0.5
+                };
+                
+                const tails1 = {
+                    id: this.currentNodeId++,
+                    name: 'פלי',
+                    x: 550,
+                    y: 200,
+                    children: [],
+                    parent: rootNode.id,
+                    probability: 0.5
+                };
+                
+                this.nodes.set(heads1.id, heads1);
+                this.nodes.set(tails1.id, tails1);
+                rootNode.children = [heads1.id, tails1.id];
+                
+                // Second flip for heads1
+                const heads1_heads2 = {
+                    id: this.currentNodeId++,
+                    name: 'עץ',
+                    x: 150,
+                    y: 320,
+                    children: [],
+                    parent: heads1.id,
+                    probability: 0.5
+                };
+                
+                const heads1_tails2 = {
+                    id: this.currentNodeId++,
+                    name: 'פלי',
+                    x: 350,
+                    y: 320,
+                    children: [],
+                    parent: heads1.id,
+                    probability: 0.5
+                };
+                
+                this.nodes.set(heads1_heads2.id, heads1_heads2);
+                this.nodes.set(heads1_tails2.id, heads1_tails2);
+                heads1.children = [heads1_heads2.id, heads1_tails2.id];
+                
+                // Second flip for tails1
+                const tails1_heads2 = {
+                    id: this.currentNodeId++,
+                    name: 'עץ',
+                    x: 450,
+                    y: 320,
+                    children: [],
+                    parent: tails1.id,
+                    probability: 0.5
+                };
+                
+                const tails1_tails2 = {
+                    id: this.currentNodeId++,
+                    name: 'פלי',
+                    x: 650,
+                    y: 320,
+                    children: [],
+                    parent: tails1.id,
+                    probability: 0.5
+                };
+                
+                this.nodes.set(tails1_heads2.id, tails1_heads2);
+                this.nodes.set(tails1_tails2.id, tails1_tails2);
+                tails1.children = [tails1_heads2.id, tails1_tails2.id];
+                
+                // Mark that we have custom positions
+                this.hasBeenDragged = true;
+            }
+            
+            buildPerfectDiceTree() {
+                // Reset node counter
+                this.currentNodeId = 0;
+                
+                // Create root node
+                const rootNode = {
+                    id: this.currentNodeId++,
+                    name: 'הטלה ראשונה',
+                    x: 400,
+                    y: 80,
+                    children: [],
+                    parent: null,
+                    probability: 1.0
+                };
+                
+                this.nodes.set(rootNode.id, rootNode);
+                
+                // Create first level - 6 outcomes with proper positioning
+                const firstLevelPositions = [
+                    { x: 100, y: 200 },  // 1
+                    { x: 220, y: 200 },  // 2
+                    { x: 340, y: 200 },  // 3
+                    { x: 460, y: 200 },  // 4
+                    { x: 580, y: 200 },  // 5
+                    { x: 700, y: 200 }   // 6
+                ];
+                
+                const firstLevelNodes = [];
+                
+                for (let i = 1; i <= 6; i++) {
+                    const firstOutcome = {
+                        id: this.currentNodeId++,
+                        name: i.toString(),
+                        x: firstLevelPositions[i-1].x,
+                        y: firstLevelPositions[i-1].y,
+                        children: [],
+                        parent: rootNode.id,
+                        probability: 1/6
+                    };
+                    
+                    this.nodes.set(firstOutcome.id, firstOutcome);
+                    rootNode.children.push(firstOutcome.id);
+                    firstLevelNodes.push(firstOutcome);
+                }
+                
+                // Create second level - each first level outcome gets 6 more outcomes
+                firstLevelNodes.forEach((parentNode, parentIndex) => {
+                    const baseX = firstLevelPositions[parentIndex].x;
+                    const secondLevelPositions = [
+                        { x: baseX - 60, y: 350 },  // 1
+                        { x: baseX - 36, y: 350 },  // 2
+                        { x: baseX - 12, y: 350 },  // 3
+                        { x: baseX + 12, y: 350 },  // 4
+                        { x: baseX + 36, y: 350 },  // 5
+                        { x: baseX + 60, y: 350 }   // 6
+                    ];
+                    
+                    for (let j = 1; j <= 6; j++) {
+                        const secondOutcome = {
+                            id: this.currentNodeId++,
+                            name: j.toString(),
+                            x: secondLevelPositions[j-1].x,
+                            y: secondLevelPositions[j-1].y,
+                            children: [],
+                            parent: parentNode.id,
+                            probability: 1/6
+                        };
+                        
+                        this.nodes.set(secondOutcome.id, secondOutcome);
+                        parentNode.children.push(secondOutcome.id);
+                    }
+                });
+                
+                // Mark that we have custom positions
+                this.hasBeenDragged = true;
+            }
+
+            // Enhanced validation with educational messages
+            validateProbabilityInput(value, branchName, allBranchValues) {
+                const parsed = this.parseProbability(value);
+                
+                if (parsed === null) {
+                    return {
+                        isValid: false,
+                        message: `❌ פורמט שגוי ב"${branchName}"\n\n` +
+                                `הערך "${value}" אינו תקין.\n\n` +
+                                `💡 דרכים נכונות להזין הסתברות:\n` +
+                                `• עשרוני: 0.5, 0.25, 0.167\n` +
+                                `• שבר: 1/2, 1/4, 1/6\n` +
+                                `• מספר שלם: 0 או 1 בלבד`
+                    };
+                }
+                
+                if (parsed < 0) {
+                    return {
+                        isValid: false,
+                        message: `❌ הסתברות שלילית ב"${branchName}"\n\n` +
+                                `הסתברות לא יכולה להיות שלילית!\n` +
+                                `הערך שלכם: ${parsed}\n\n` +
+                                `📚 זכרו: הסתברות היא תמיד בין 0 ל-1\n` +
+                                `• 0 = בלתי אפשרי (0%)\n` +
+                                `• 1 = בטוח (100%)\n` +
+                                `• 0.5 = סיכוי של 50%`
+                    };
+                }
+                
+                if (parsed > 1) {
+                    let explanation = `❌ הסתברות גדולה מ-1 ב"${branchName}"\n\n`;
+                    explanation += `הערך שלכם: ${parsed} = ${(parsed * 100).toFixed(1)}%\n\n`;
+                    
+                    if (this.selectedTopic === 'dice') {
+                        explanation += `🎲 בקובייה רגילה:\n`;
+                        explanation += `• יש 6 פאות: 1, 2, 3, 4, 5, 6\n`;
+                        explanation += `• הסתברות לכל פאה: 1/6 ≈ 0.167 (16.7%)\n`;
+                        explanation += `• סך כל ההסתברויות: 6 × (1/6) = 1 (100%)\n\n`;
+                        explanation += `💡 אם אתם רוצים "זוגי" (2,4,6):\n`;
+                        explanation += `הסתברות = 3/6 = 1/2 = 0.5 (50%)`;
+                    } else if (this.selectedTopic === 'coin') {
+                        explanation += `🪙 במטבע רגיל:\n`;
+                        explanation += `• יש 2 אפשרויות: עץ ופלי\n`;
+                        explanation += `• הסתברות לכל אחת: 1/2 = 0.5 (50%)\n`;
+                        explanation += `• סך כל ההסתברויות: 2 × (1/2) = 1 (100%)`;
+                    }
+                    
+                    explanation += `\n\n📏 כלל זהב: הסתברות תמיד ≤ 1`;
+                    
+                    return {
+                        isValid: false,
+                        message: explanation
+                    };
+                }
+                
+                return { isValid: true };
+            }
+
+            // Enhanced sum validation with educational content
+            validateProbabilitySum(branchData, totalSum) {
+                if (Math.abs(totalSum - 1.0) < 0.001) {
+                    return { isValid: true };
+                }
+                
+                let message = `⚠️ בעיה בסכום ההסתברויות\n\n`;
+                
+                // Show current situation
+                message += `📊 המצב הנוכחי:\n`;
+                branchData.forEach((branch, index) => {
+                    const percentage = (branch.probability * 100).toFixed(1);
+                    message += `• ${branch.name}: ${branch.probability.toFixed(4)} (${percentage}%)\n`;
+                });
+                
+                message += `\n📈 סיכום:\n`;
+                message += `• הסכום שלכם: ${totalSum.toFixed(4)} (${(totalSum * 100).toFixed(1)}%)\n`;
+                message += `• הסכום הנדרש: 1.0000 (100.0%)\n`;
+                message += `• ההפרש: ${Math.abs(totalSum - 1.0).toFixed(4)}\n\n`;
+                
+                // Educational explanation based on topic
+                if (this.selectedTopic === 'dice') {
+                    message += `🎲 למה הסכום חייב להיות 1?\n`;
+                    message += `בקובייה, אחת מהתוצאות חייבת לקרות!\n`;
+                    message += `אם נזרוק קובייה, נקבל 1 או 2 או 3 או 4 או 5 או 6.\n`;
+                    message += `לכן: P(1) + P(2) + P(3) + P(4) + P(5) + P(6) = 1\n\n`;
+                    
+                    if (totalSum > 1) {
+                        message += `🔴 הבעיה: הסכום שלכם גדול מ-1\n`;
+                        message += `זה אומר שיש יותר מ-100% סיכוי - בלתי אפשרי!\n`;
+                        message += `💡 פתרון: הקטינו חלק מההסתברויות`;
+                    } else {
+                        message += `🟡 הבעיה: הסכום שלכם קטן מ-1\n`;
+                        message += `זה אומר שיש פחות מ-100% סיכוי - חסרות אפשרויות!\n`;
+                        message += `💡 פתרון: הגדילו חלק מההסתברויות`;
+                    }
+                } else if (this.selectedTopic === 'coin') {
+                    message += `🪙 למה הסכום חייב להיות 1?\n`;
+                    message += `במטבע, אחת מהתוצאות חייבת לקרות!\n`;
+                    message += `אם נזרוק מטבע, נקבל עץ או פלי.\n`;
+                    message += `לכן: P(עץ) + P(פלי) = 1\n\n`;
+                    
+                    if (totalSum > 1) {
+                        message += `🔴 הבעיה: הסכום שלכם גדול מ-1\n`;
+                        message += `זה כמו לומר שיש יותר מ-100% סיכוי - בלתי אפשרי!`;
+                    } else {
+                        message += `🟡 הבעיה: הסכום שלכם קטן מ-1\n`;
+                        message += `זה כמו לומר שהמטבע יכול "לא ליפול" - בלתי אפשרי!`;
+                    }
+                }
+                
+                message += `\n\n🔧 האם תרצו שאני אתקן אוטומטית?\n`;
+                message += `המערכת תחלק כל הסתברות ב-${totalSum.toFixed(4)}\n`;
+                message += `כך הסכום יהיה בדיוק 1.0000`;
+                
+                return {
+                    isValid: false,
+                    message: message,
+                    canAutoFix: true
+                };
+            }
+            
+            updateResults() {
+                const paths = this.getAllPaths();
+                if (paths.length > 0) {
+                    this.displayResults(paths);
+                }
+            }
+
+            // פונקציות יצירה מהירה
+            createDiceOutcomes(nodeId) {
+                const node = this.nodes.get(nodeId);
+                
+                // יצירת 6 תוצאות לקובייה
+                for (let i = 1; i <= 6; i++) {
+                    const outcome = {
+                        id: this.currentNodeId++,
+                        name: i.toString(),
+                        x: 0, y: 0,
+                        children: [],
+                        parent: nodeId,
+                        probability: 1/6
+                    };
+                    
+                    this.nodes.set(outcome.id, outcome);
+                    node.children.push(outcome.id);
+                }
+                
+                // הודעת הצלחה
+                alert('✅ נוצרו 6 תוצאות לקובייה!\n\n' +
+                      '🎲 התוצאות: 1, 2, 3, 4, 5, 6\n' +
+                      '📊 הסתברות כל אחת: 1/6 ≈ 0.167 (16.7%)\n' +
+                      '✅ סכום: 6 × (1/6) = 1 (100%)');
+            }
+            
+            createCoinOutcomes(nodeId) {
+                const node = this.nodes.get(nodeId);
+                
+                // יצירת 2 תוצאות למטבע
+                const outcomes = [
+                    { name: 'עץ', probability: 0.5 },
+                    { name: 'פלי', probability: 0.5 }
+                ];
+                
+                outcomes.forEach(outcome => {
+                    const outcomeNode = {
+                        id: this.currentNodeId++,
+                        name: outcome.name,
+                        x: 0, y: 0,
+                        children: [],
+                        parent: nodeId,
+                        probability: outcome.probability
+                    };
+                    
+                    this.nodes.set(outcomeNode.id, outcomeNode);
+                    node.children.push(outcomeNode.id);
+                });
+                
+                // הודעת הצלחה
+                alert('✅ נוצרו 2 תוצאות למטבע!\n\n' +
+                      '🪙 התוצאות: עץ ופלי\n' +
+                      '📊 הסתברות כל אחת: 1/2 = 0.5 (50%)\n' +
+                      '✅ סכום: 2 × (1/2) = 1 (100%)');
+            }
+
+            // Check if nodes have been manually positioned
+            hasCustomPositions() {
+                // If any node has been dragged, we consider all positions as custom
+                return this.wasDragging || this.hasBeenDragged;
+            }
+
+            // Drag and drop functions
+            handleMouseDown(e) {
+                // Check if we clicked on a node circle
+                const target = e.target;
+                if (target.tagName === 'circle' && target.hasAttribute('data-node-id')) {
+                    const nodeId = parseInt(target.getAttribute('data-node-id'));
+                    const node = this.nodes.get(nodeId);
+                    
+                    if (node) {
+                        this.isDragging = true;
+                        this.draggedNode = nodeId;
+                        this.wasDragging = false;
+                        
+                        // Calculate offset from mouse to node center
+                        const rect = document.getElementById('tree-container').getBoundingClientRect();
+                        const mouseX = (e.clientX - rect.left) / this.zoomLevel;
+                        const mouseY = (e.clientY - rect.top) / this.zoomLevel;
+                        
+                        this.dragOffset.x = mouseX - node.x;
+                        this.dragOffset.y = mouseY - node.y;
+                        this.lastMousePos.x = mouseX;
+                        this.lastMousePos.y = mouseY;
+                        
+                        // Change cursor and add visual feedback
+                        document.body.style.cursor = 'grabbing';
+                        target.style.filter = 'brightness(1.2)';
+                        
+                        e.preventDefault();
+                    }
+                }
+            }
+            
+            handleMouseMove(e) {
+                if (!this.isDragging || !this.draggedNode) return;
+                
+                const rect = document.getElementById('tree-container').getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left) / this.zoomLevel;
+                const mouseY = (e.clientY - rect.top) / this.zoomLevel;
+                
+                // Check if mouse moved significantly (to distinguish from click)
+                const deltaX = Math.abs(mouseX - this.lastMousePos.x);
+                const deltaY = Math.abs(mouseY - this.lastMousePos.y);
+                
+                if (deltaX > 3 || deltaY > 3) {
+                    this.wasDragging = true;
+                    this.hasBeenDragged = true;
+                }
+                
+                const node = this.nodes.get(this.draggedNode);
+                if (node) {
+                    // Update node position
+                    node.x = mouseX - this.dragOffset.x;
+                    node.y = mouseY - this.dragOffset.y;
+                    
+                    // Keep node within reasonable bounds
+                    const minX = 50;
+                    const maxX = 1150;
+                    const minY = 50;
+                    const maxY = 750;
+                    
+                    node.x = Math.max(minX, Math.min(maxX, node.x));
+                    node.y = Math.max(minY, Math.min(maxY, node.y));
+                    
+                    // Redraw tree with new position
+                    this.drawTree();
+                }
+                
+                e.preventDefault();
+            }
+            
+            handleMouseUp(e) {
+                if (this.isDragging) {
+                    this.isDragging = false;
+                    this.draggedNode = null;
+                    
+                    // Reset cursor and visual feedback
+                    document.body.style.cursor = 'default';
+                    
+                    // Remove brightness filter from all circles
+                    const circles = document.querySelectorAll('circle[data-node-id]');
+                    circles.forEach(circle => {
+                        circle.style.filter = '';
+                    });
+                    
+                    // Small delay to prevent click event after drag
+                    if (this.wasDragging) {
+                        setTimeout(() => {
+                            this.wasDragging = false;
+                        }, 50);
+                    }
+                }
+            }
+
+            // Helper functions
+            decimalToFraction(decimal) {
+                if (decimal === 0) return '0';
+                if (decimal === 1) return '1';
+                
+                // Common fractions for probability
+                const commonFractions = {
+                    0.5: '1/2',
+                    0.25: '1/4',
+                    0.75: '3/4',
+                    0.125: '1/8',
+                    0.375: '3/8',
+                    0.625: '5/8',
+                    0.875: '7/8',
+                    0.167: '1/6',
+                    0.333: '1/3',
+                    0.667: '2/3',
+                    0.833: '5/6'
+                };
+                
+                const rounded = Math.round(decimal * 1000) / 1000;
+                if (commonFractions[rounded]) {
+                    return commonFractions[rounded];
+                }
+                
+                // Simple fraction conversion
+                const tolerance = 1e-6;
+                let denominator = 1;
+                while (denominator <= 100) {
+                    const numerator = Math.round(decimal * denominator);
+                    if (Math.abs(decimal - numerator / denominator) < tolerance) {
+                        const gcd = this.gcd(numerator, denominator);
+                        return `${numerator / gcd}/${denominator / gcd}`;
+                    }
+                    denominator++;
+                }
+                
+                return decimal.toFixed(3);
+            }
+
+            gcd(a, b) {
+                return b === 0 ? a : this.gcd(b, a % b);
+            }
+
+            arraysEqual(a, b) {
+                return a.length === b.length && a.every((val, i) => val === b[i]);
+            }
+        }
+
+        // Initialize the application
+        const tree = new ProbabilityTree();
+        
+        // Set default color selection
+        document.querySelector('[data-color="#f59e0b"]').classList.remove('border-gray-300');
+        document.querySelector('[data-color="#f59e0b"]').classList.add('border-black');
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96ca641b35e2d0ed',t:'MTc1NDc3NTQwOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
