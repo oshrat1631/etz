@@ -99,6 +99,25 @@
         }
       }
 
+      .selected-node {
+        stroke: #3b82f6 !important;
+        stroke-width: 4 !important;
+        filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6));
+        animation: selected-pulse 1.5s infinite;
+      }
+
+      @keyframes selected-pulse {
+        0%,
+        100% {
+          stroke-opacity: 1;
+          filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6));
+        }
+        50% {
+          stroke-opacity: 0.7;
+          filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.8));
+        }
+      }
+
       .node-tooltip {
         position: absolute;
         background: rgba(0, 0, 0, 0.8);
@@ -164,7 +183,9 @@
                 2️⃣ עריכת וגרירת צמתים
               </h3>
               <p class="text-sm text-gray-700">
-                לחצו על עיגול לעריכה, או גררו אותו כדי לשנות את מיקומו בעץ
+                לחצו על עיגול לעריכה, או גררו אותו כדי לשנות את מיקומו בעץ.
+                <strong>חדש:</strong> החזיקו Ctrl ולחצו לבחירה מרובה, או גררו את
+                נקודת ההתחלה (הכתומה)
               </p>
             </div>
 
@@ -238,6 +259,8 @@
               <li>• 🎲 השתמשו בשמות ברורים לענפים</li>
               <li>• 🔢 הסתברויות חייבות להיות בין 0 ל-1</li>
               <li>• ➕ סכום הסתברויות מכל צומת = 1</li>
+              <li>• 🎯 Ctrl+Click לבחירה מרובה של צמתים</li>
+              <li>• 🖱️ גררו את נקודת ההתחלה (הכתומה) להזזה</li>
             </ul>
             <ul class="space-y-1">
               <li>• 🎯 Shift+קליק או מצב נתיבים לסימון</li>
@@ -321,7 +344,7 @@
                       הסתברות שקורים שני אירועים יחד:
                     </p>
                     <p class="text-xs text-green-600 mt-1">
-                      <strong>נוסחה:</strong> P(A ∩ B) = P(A) × P(B|A)
+                      <strong>נוסחה:</strong> P(A ∩ B) = P(A) × P(B)
                     </p>
                     <p class="text-xs text-gray-600">
                       אם עצמאיים: P(A ∩ B) = P(A) × P(B)
@@ -477,6 +500,18 @@
           >
             נקה עץ
           </button>
+          <button
+            id="save-tree"
+            class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all active:scale-95 transform"
+          >
+            💾 שמור עץ
+          </button>
+          <button
+            id="load-tree"
+            class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all active:scale-95 transform"
+          >
+            📂 טען עץ
+          </button>
         </div>
       </div>
 
@@ -574,6 +609,12 @@
                 class="bg-pink-500 hover:bg-pink-600 text-white px-2 py-1 rounded text-xs font-medium transition-all"
               >
                 📱 מצב נתיבים
+              </button>
+              <button
+                id="export-tree"
+                class="bg-indigo-500 hover:bg-indigo-600 text-white px-2 py-1 rounded text-xs font-medium transition-all"
+              >
+                📷 ייצוא תמונה
               </button>
             </div>
           </div>
@@ -677,10 +718,11 @@
             </div>
             <div
               id="empty-tree-message"
-              class="absolute inset-0 flex flex-col items-center justify-center text-gray-500"
+              class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 z-10"
+              style="pointer-events: none"
             >
               <div class="text-6xl mb-4">🌱</div>
-              <p class="text-lg">העץ שלכם יופיע כאן</p>
+              <p class="text-lg">העץ שלכם מתחיל כאן</p>
               <p class="text-sm">בחרו נושא ולחצו על "התחל עץ חדש"</p>
             </div>
           </div>
@@ -786,8 +828,22 @@
           this.currentQuestionSet = [];
           this.questionsVisible = false;
 
+          // Performance optimizations
+          this.debounceTimer = null;
+          this.lastDrawTime = 0;
+          this.drawThrottle = 16; // ~60fps
+
           this.initializeEventListeners();
           this.initializeQuestions();
+
+          // Try to load saved tree on startup
+          this.loadTreeFromStorage();
+
+          // Set up auto-save every 30 seconds
+          setInterval(() => this.autoSave(), 30000);
+
+          // Show new features notification
+          this.showNewFeaturesNotification();
         }
 
         initializeQuestions() {
@@ -1063,6 +1119,12 @@
           document
             .getElementById("clear-tree")
             .addEventListener("click", () => this.clearTree());
+          document
+            .getElementById("save-tree")
+            .addEventListener("click", () => this.handleSaveTree());
+          document
+            .getElementById("load-tree")
+            .addEventListener("click", () => this.handleLoadTree());
 
           // Zoom controls
           document
@@ -1080,6 +1142,9 @@
           document
             .getElementById("toggle-path-mode")
             .addEventListener("click", () => this.togglePathMode());
+          document
+            .getElementById("export-tree")
+            .addEventListener("click", () => this.exportTreeAsImage());
 
           // Modal controls
           document
@@ -1156,6 +1221,7 @@
           this.createRootNode();
           this.hideEmptyMessage();
           this.drawTree();
+          this.autoSave(); // Auto-save new tree
         }
 
         createRootNode() {
@@ -1173,12 +1239,27 @@
         }
 
         clearTree() {
+          // Clear all data structures
           this.nodes.clear();
           this.edges = [];
           this.currentNodeId = 0;
           this.selectedNode = null;
           this.hasBeenDragged = false;
           this.wasDragging = false;
+
+          // Clear path highlighting
+          this.highlightedPaths = [];
+          this.currentPathSelection = [];
+
+          // Clear collapsed nodes
+          this.collapsedNodes.clear();
+
+          // Clear performance timers
+          if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = null;
+          }
+
           this.showEmptyMessage();
           this.hideResults();
 
@@ -1214,6 +1295,7 @@
           }
           this.drawEdges(svg);
           this.drawNodes(svg);
+          this.drawRootNode(svg);
         }
 
         layoutNodes() {
@@ -1391,6 +1473,8 @@
         drawNodes(svg) {
           for (const [id, node] of this.nodes) {
             if (!this.isNodeVisible(node)) continue;
+            // Skip root node - it's drawn separately by drawRootNode
+            if (node.parent === null) continue;
 
             const g = document.createElementNS(
               "http://www.w3.org/2000/svg",
@@ -1463,6 +1547,11 @@
             // Add data attribute for drag identification
             circle.setAttribute("data-node-id", id);
 
+            // Add selection class if node is selected
+            if (this.selectedNodes.has(id)) {
+              circle.classList.add("selected-node");
+            }
+
             g.appendChild(circle);
 
             // Node label
@@ -1522,6 +1611,65 @@
 
             svg.appendChild(g);
           }
+        }
+
+        drawRootNode(svg) {
+          // Find the root node (node with parent: null)
+          const rootNode = Array.from(this.nodes.values()).find(
+            (node) => node.parent === null
+          );
+          if (!rootNode) return;
+
+          const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+
+          // Root node circle
+          const circle = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "circle"
+          );
+          circle.setAttribute("cx", rootNode.x);
+          circle.setAttribute("cy", rootNode.y);
+          circle.setAttribute("r", 35); // Slightly larger than regular nodes
+          circle.setAttribute("fill", "#f59e0b"); // Orange color for root
+          circle.setAttribute("stroke", "#d97706");
+          circle.setAttribute("stroke-width", "3");
+          circle.setAttribute("class", "tree-node root-node");
+          circle.setAttribute("data-node-id", rootNode.id.toString()); // Add data-node-id for dragging
+
+          // Add selection class if root is selected
+          if (this.selectedNodes.has(rootNode.id)) {
+            circle.classList.add("selected-node");
+          }
+
+          // Add click events
+          circle.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (this.wasDragging) {
+              this.wasDragging = false;
+              return;
+            }
+            this.editNode(rootNode.id);
+          });
+
+          g.appendChild(circle);
+
+          // Root label
+          const text = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "text"
+          );
+          text.setAttribute("x", rootNode.x);
+          text.setAttribute("y", rootNode.y + 5);
+          text.setAttribute("text-anchor", "middle");
+          text.setAttribute(
+            "class",
+            "text-sm font-bold fill-white pointer-events-none"
+          );
+          text.textContent = rootNode.name;
+
+          g.appendChild(text);
+
+          svg.appendChild(g);
         }
 
         editNode(nodeId) {
@@ -1934,6 +2082,7 @@
 
           this.closeModal();
           this.drawTree();
+          this.autoSave(); // Auto-save after changes
         }
 
         closeModal() {
@@ -2351,6 +2500,7 @@
           this.hideEmptyMessage();
           this.drawTree();
           this.updateResults();
+          this.autoSave(); // Auto-save auto-completed tree
 
           const resultMessage =
             this.selectedTopic === "coin"
@@ -2736,21 +2886,69 @@
           return this.wasDragging || this.hasBeenDragged;
         }
 
+        // Multi-selection properties
+        selectedNodes = new Set();
+        isMultiSelecting = false;
+        draggedNodes = new Set();
+
         // Drag and drop functions
         handleMouseDown(e) {
-          // Check if we clicked on a node circle
           const target = e.target;
+
+          // Check if we clicked on a node circle (including root)
           if (
             target.tagName === "circle" &&
-            target.hasAttribute("data-node-id")
+            (target.hasAttribute("data-node-id") ||
+              target.classList.contains("root-node"))
           ) {
-            const nodeId = parseInt(target.getAttribute("data-node-id"));
+            const nodeId = target.hasAttribute("data-node-id")
+              ? parseInt(target.getAttribute("data-node-id"))
+              : 0; // Root node ID is 0
             const node = this.nodes.get(nodeId);
 
             if (node) {
+              // Handle multi-selection with Ctrl key
+              if (e.ctrlKey || e.metaKey) {
+                if (this.selectedNodes.has(nodeId)) {
+                  this.selectedNodes.delete(nodeId);
+                  target.classList.remove("selected-node");
+                } else {
+                  this.selectedNodes.add(nodeId);
+                  target.classList.add("selected-node");
+                }
+                this.isMultiSelecting = true;
+                return;
+              }
+
+              // Single node selection
+              if (!this.selectedNodes.has(nodeId)) {
+                // Clear previous selection
+                this.clearSelection();
+                this.selectedNodes.add(nodeId);
+                target.classList.add("selected-node");
+              }
+
               this.isDragging = true;
               this.draggedNode = nodeId;
               this.wasDragging = false;
+
+              // If we have multiple nodes selected, prepare to drag all
+              if (this.selectedNodes.size > 1) {
+                this.draggedNodes = new Set(this.selectedNodes);
+                // Calculate offsets for all selected nodes
+                this.dragOffsets = new Map();
+                this.selectedNodes.forEach((selectedNodeId) => {
+                  const selectedNode = this.nodes.get(selectedNodeId);
+                  if (selectedNode) {
+                    this.dragOffsets.set(selectedNodeId, {
+                      x: this.lastMousePos.x - selectedNode.x,
+                      y: this.lastMousePos.y - selectedNode.y,
+                    });
+                  }
+                });
+              } else {
+                this.draggedNodes = new Set([nodeId]);
+              }
 
               // Calculate offset from mouse to node center
               const rect = document
@@ -2770,6 +2968,12 @@
 
               e.preventDefault();
             }
+          } else if (
+            e.target.id === "tree-container" ||
+            e.target.tagName === "svg"
+          ) {
+            // Clicked on empty space - clear selection
+            this.clearSelection();
           }
         }
 
@@ -2791,38 +2995,77 @@
             this.hasBeenDragged = true;
           }
 
-          const node = this.nodes.get(this.draggedNode);
-          if (node) {
-            // Update node position
-            node.x = mouseX - this.dragOffset.x;
-            node.y = mouseY - this.dragOffset.y;
+          // Move all selected nodes
+          this.draggedNodes.forEach((nodeId) => {
+            const node = this.nodes.get(nodeId);
+            if (node) {
+              let newX, newY;
 
-            // Keep node within reasonable bounds
-            const minX = 50;
-            const maxX = 1150;
-            const minY = 50;
-            const maxY = 750;
+              if (this.draggedNodes.size > 1 && this.dragOffsets) {
+                // Multi-node drag - use stored offsets
+                const offset = this.dragOffsets.get(nodeId);
+                if (offset) {
+                  newX = mouseX - offset.x;
+                  newY = mouseY - offset.y;
+                } else {
+                  newX = mouseX - this.dragOffset.x;
+                  newY = mouseY - this.dragOffset.y;
+                }
+              } else {
+                // Single node drag
+                newX = mouseX - this.dragOffset.x;
+                newY = mouseY - this.dragOffset.y;
+              }
 
-            node.x = Math.max(minX, Math.min(maxX, node.x));
-            node.y = Math.max(minY, Math.min(maxY, node.y));
+              // Keep node within reasonable bounds
+              const minX = 50;
+              const maxX = 1150;
+              const minY = 50;
+              const maxY = 750;
 
-            // Redraw tree with new position
-            this.drawTree();
-          }
+              node.x = Math.max(minX, Math.min(maxX, newX));
+              node.y = Math.max(minY, Math.min(maxY, newY));
+            }
+          });
+
+          // Throttled redraw for better performance
+          this.throttledDrawTree();
 
           e.preventDefault();
+        }
+
+        // Performance optimization: throttled drawing
+        throttledDrawTree() {
+          const now = Date.now();
+          if (now - this.lastDrawTime >= this.drawThrottle) {
+            this.drawTree();
+            this.lastDrawTime = now;
+          } else {
+            // Clear existing timer and set new one
+            if (this.debounceTimer) {
+              clearTimeout(this.debounceTimer);
+            }
+            this.debounceTimer = setTimeout(() => {
+              this.drawTree();
+              this.lastDrawTime = Date.now();
+            }, this.drawThrottle);
+          }
         }
 
         handleMouseUp(e) {
           if (this.isDragging) {
             this.isDragging = false;
             this.draggedNode = null;
+            this.draggedNodes.clear();
+            this.dragOffsets = null;
 
             // Reset cursor and visual feedback
             document.body.style.cursor = "default";
 
             // Remove brightness filter from all circles
-            const circles = document.querySelectorAll("circle[data-node-id]");
+            const circles = document.querySelectorAll(
+              "circle[data-node-id], circle.root-node"
+            );
             circles.forEach((circle) => {
               circle.style.filter = "";
             });
@@ -2833,6 +3076,50 @@
                 this.wasDragging = false;
               }, 50);
             }
+          }
+        }
+
+        // Helper function to clear selection
+        clearSelection() {
+          this.selectedNodes.clear();
+          const selectedElements = document.querySelectorAll(".selected-node");
+          selectedElements.forEach((element) => {
+            element.classList.remove("selected-node");
+          });
+        }
+
+        // Show new features notification
+        showNewFeaturesNotification() {
+          const hasSeenNotification = localStorage.getItem("newFeaturesSeen");
+          if (!hasSeenNotification) {
+            setTimeout(() => {
+              const notification = document.createElement("div");
+              notification.className =
+                "fixed top-4 right-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm";
+              notification.innerHTML = `
+                <h3 class="font-bold mb-2">🎉 פיצ'רים חדשים!</h3>
+                <ul class="text-sm space-y-1">
+                  <li>• 🎯 Ctrl+Click לבחירה מרובה</li>
+                  <li>• 🖱️ גרירת נקודת ההתחלה</li>
+                  <li>• 💾 שמירה אוטומטית</li>
+                  <li>• 📷 ייצוא תמונה</li>
+                </ul>
+                <button onclick="this.parentElement.remove()" class="mt-2 text-xs bg-white/20 px-2 py-1 rounded hover:bg-white/30">
+                  הבנתי
+                </button>
+              `;
+              document.body.appendChild(notification);
+
+              // Mark as seen
+              localStorage.setItem("newFeaturesSeen", "true");
+
+              // Auto-remove after 10 seconds
+              setTimeout(() => {
+                if (notification.parentElement) {
+                  notification.remove();
+                }
+              }, 10000);
+            }, 2000);
           }
         }
 
@@ -2882,6 +3169,158 @@
 
         arraysEqual(a, b) {
           return a.length === b.length && a.every((val, i) => val === b[i]);
+        }
+
+        // Save tree to localStorage
+        saveTreeToStorage() {
+          try {
+            const treeData = {
+              nodes: Array.from(this.nodes.entries()),
+              selectedTopic: this.selectedTopic,
+              treeTopic: this.treeTopic,
+              timestamp: Date.now(),
+            };
+            localStorage.setItem("probabilityTree", JSON.stringify(treeData));
+            return true;
+          } catch (error) {
+            console.error("Failed to save tree:", error);
+            return false;
+          }
+        }
+
+        // Load tree from localStorage
+        loadTreeFromStorage() {
+          try {
+            const savedData = localStorage.getItem("probabilityTree");
+            if (!savedData) return false;
+
+            const treeData = JSON.parse(savedData);
+
+            // Check if data is not too old (7 days)
+            const daysOld =
+              (Date.now() - treeData.timestamp) / (1000 * 60 * 60 * 24);
+            if (daysOld > 7) {
+              localStorage.removeItem("probabilityTree");
+              return false;
+            }
+
+            // Restore tree data
+            this.nodes = new Map(treeData.nodes);
+            this.selectedTopic = treeData.selectedTopic;
+            this.treeTopic = treeData.treeTopic;
+
+            // Update UI
+            if (this.selectedTopic) {
+              this.selectTopic(this.selectedTopic);
+            }
+
+            this.hideEmptyMessage();
+            this.drawTree();
+            this.updateResults();
+
+            return true;
+          } catch (error) {
+            console.error("Failed to load tree:", error);
+            localStorage.removeItem("probabilityTree");
+            return false;
+          }
+        }
+
+        // Auto-save functionality
+        autoSave() {
+          if (this.nodes.size > 0) {
+            this.saveTreeToStorage();
+          }
+        }
+
+        // Handle save tree button click
+        handleSaveTree() {
+          if (this.nodes.size === 0) {
+            alert("אין עץ לשמירה! אנא צרו עץ תחילה.");
+            return;
+          }
+
+          const success = this.saveTreeToStorage();
+          if (success) {
+            alert(
+              "✅ העץ נשמר בהצלחה!\n\nהעץ יישמר בדפדפן וייטען אוטומטית בפעם הבאה."
+            );
+          } else {
+            alert("❌ שגיאה בשמירת העץ. אנא נסו שוב.");
+          }
+        }
+
+        // Handle load tree button click
+        handleLoadTree() {
+          const success = this.loadTreeFromStorage();
+          if (success) {
+            alert(
+              "✅ העץ נטען בהצלחה!\n\nהעץ נשמר ב-" +
+                new Date().toLocaleDateString("he-IL")
+            );
+          } else {
+            alert(
+              "❌ אין עץ שמור או שהעץ פג תוקף.\n\nעצים נשמרים ל-7 ימים בלבד."
+            );
+          }
+        }
+
+        // Export tree as image
+        exportTreeAsImage() {
+          if (this.nodes.size === 0) {
+            alert("אין עץ לייצוא! אנא צרו עץ תחילה.");
+            return;
+          }
+
+          try {
+            const svg = document.getElementById("tree-svg");
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            // Set canvas size
+            canvas.width = 1200;
+            canvas.height = 800;
+
+            // Create image from SVG
+            const img = new Image();
+            const svgBlob = new Blob([svgData], {
+              type: "image/svg+xml;charset=utf-8",
+            });
+            const url = URL.createObjectURL(svgBlob);
+
+            img.onload = function () {
+              // Draw white background
+              ctx.fillStyle = "white";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+              // Draw the SVG
+              ctx.drawImage(img, 0, 0);
+
+              // Convert to blob and download
+              canvas.toBlob(function (blob) {
+                const downloadUrl = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = downloadUrl;
+                a.download = `probability-tree-${new Date()
+                  .toISOString()
+                  .slice(0, 10)}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(downloadUrl);
+              });
+
+              URL.revokeObjectURL(url);
+            };
+
+            img.src = url;
+
+            alert("✅ התמונה נוצרה בהצלחה!\n\nהקובץ יורד אוטומטית.");
+          } catch (error) {
+            console.error("Export failed:", error);
+            alert("❌ שגיאה בייצוא התמונה. אנא נסו שוב.");
+          }
         }
       }
 
