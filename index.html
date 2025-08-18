@@ -184,8 +184,10 @@
               </h3>
               <p class="text-sm text-gray-700">
                 לחצו על עיגול לעריכה, או גררו אותו כדי לשנות את מיקומו בעץ.
-                <strong>חדש:</strong> החזיקו Ctrl ולחצו לבחירה מרובה, או גררו את
-                נקודת ההתחלה (הכתומה)
+                <strong>בחירה מרובה:</strong> החזיקו Ctrl ולחצו על צמתים לבחירה
+                מרובה, גררו צמתים נבחרים יחד לסידור מחדש.
+                <strong>גרירת העץ:</strong> גררו את נקודת ההתחלה (הכתומה) להזזת
+                כל העץ
               </p>
             </div>
 
@@ -227,7 +229,9 @@
             <div class="bg-white/80 p-4 rounded-lg border-l-4 border-red-500">
               <h3 class="font-bold text-red-700 mb-2">🔍 זום ותצוגה</h3>
               <p class="text-sm text-gray-700">
-                השתמשו בכפתורי הזום כדי להגדיל/להקטין את העץ לתצוגה נוחה
+                השתמשו בכפתורי הזום כדי להגדיל/להקטין את העץ לתצוגה נוחה.
+                <strong>עץ קוביות:</strong> הצמתים מסודרים בשתי שורות לכל הורה
+                לנראות טובה יותר
               </p>
             </div>
 
@@ -267,6 +271,7 @@
               <li>• 🖱️ גררו צמתים לסידור מחדש</li>
               <li>• 🔍 השתמשו בזום לתצוגה טובה</li>
               <li>• 📋 המערכת תתקן שגיאות אוטומטית</li>
+              <li>• 🎲 עץ קוביות: צמתים בשתי שורות לנראות טובה</li>
             </ul>
           </div>
         </div>
@@ -1537,6 +1542,11 @@
                 return;
               }
 
+              // Don't open edit screen if Ctrl is pressed (multi-selection mode)
+              if (e.ctrlKey || e.metaKey) {
+                return;
+              }
+
               if (e.shiftKey || this.pathModeActive) {
                 this.togglePathHighlight(id);
               } else {
@@ -1648,6 +1658,12 @@
               this.wasDragging = false;
               return;
             }
+
+            // Don't open edit screen if Ctrl is pressed (multi-selection mode)
+            if (e.ctrlKey || e.metaKey) {
+              return;
+            }
+
             this.editNode(rootNode.id);
           });
 
@@ -2623,7 +2639,7 @@
 
           this.nodes.set(rootNode.id, rootNode);
 
-          // Create first level - 6 outcomes with proper positioning
+          // Create first level - 6 outcomes with better spacing
           const firstLevelPositions = [
             { x: 100, y: 200 }, // 1
             { x: 220, y: 200 }, // 2
@@ -2651,16 +2667,21 @@
             firstLevelNodes.push(firstOutcome);
           }
 
-          // Create second level - each first level outcome gets 6 more outcomes
+          // Create second level with improved layout - arrange in 2 rows of 3 for each parent
           firstLevelNodes.forEach((parentNode, parentIndex) => {
             const baseX = firstLevelPositions[parentIndex].x;
+            const baseY = 350;
+
+            // Arrange 6 outcomes in 2 rows of 3 for better visibility
             const secondLevelPositions = [
-              { x: baseX - 60, y: 350 }, // 1
-              { x: baseX - 36, y: 350 }, // 2
-              { x: baseX - 12, y: 350 }, // 3
-              { x: baseX + 12, y: 350 }, // 4
-              { x: baseX + 36, y: 350 }, // 5
-              { x: baseX + 60, y: 350 }, // 6
+              // Row 1 (top)
+              { x: baseX - 50, y: baseY - 25 }, // 1
+              { x: baseX, y: baseY - 25 }, // 2
+              { x: baseX + 50, y: baseY - 25 }, // 3
+              // Row 2 (bottom)
+              { x: baseX - 50, y: baseY + 25 }, // 4
+              { x: baseX, y: baseY + 25 }, // 5
+              { x: baseX + 50, y: baseY + 25 }, // 6
             ];
 
             for (let j = 1; j <= 6; j++) {
