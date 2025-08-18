@@ -925,6 +925,7 @@
                         if (!this.isNodeVisible(parent)) continue;
                         
                         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        let lineClasses = 'branch-line';
                         
                         line.setAttribute('x1', parent.x);
                         line.setAttribute('y1', parent.y + 30);
@@ -960,14 +961,14 @@
                                 edgeColor = this.selectedColor; // צבע שנבחר לנתיב הנוכחי
                                 strokeWidth = '4';
                                 line.setAttribute('stroke-dasharray', '8,4');
-                                line.setAttribute('class', 'branch-line animate-pulse');
+                                lineClasses = 'branch-line animate-pulse';
                             }
                         }
                         
                         line.setAttribute('stroke', edgeColor);
                         line.setAttribute('stroke-width', strokeWidth);
                         line.setAttribute('fill', 'none');
-                        line.setAttribute('class', 'branch-line');
+                        line.setAttribute('class', lineClasses);
                         
                         svg.appendChild(line);
 
@@ -1028,6 +1029,7 @@
                     let fillColor = node.children.length === 0 ? '#10b981' : '#8b5cf6';
                     let strokeColor = '#6b21a8';
                     let strokeWidth = '2';
+                    let circleClasses = 'tree-node';
                     
                     // Check if node is part of any completed highlighted path
                     let nodeHighlightColor = null;
@@ -1050,13 +1052,13 @@
                         fillColor = this.selectedColor; // צבע שנבחר לצמתים בנתיב הנוכחי
                         strokeColor = this.selectedColor;
                         strokeWidth = '4';
-                        circle.setAttribute('class', 'tree-node animate-pulse');
+                        circleClasses = 'tree-node animate-pulse';
                     }
                     
                     circle.setAttribute('fill', fillColor);
                     circle.setAttribute('stroke', strokeColor);
                     circle.setAttribute('stroke-width', strokeWidth);
-                    circle.setAttribute('class', 'tree-node');
+                    circle.setAttribute('class', circleClasses);
                     
                     // Add click events - only if not dragging
                     circle.addEventListener('click', (e) => {
@@ -1451,6 +1453,7 @@
                 
                 this.closeModal();
                 this.drawTree();
+                this.updateResults();
             }
 
             closeModal() {
@@ -1496,7 +1499,10 @@
                 resultsContent.innerHTML = '';
                 
                 if (paths.length === 0) {
-                    resultsContent.innerHTML = '<p class="text-gray-500">אין מסלולים להצגה</p>';
+                    const emptyP = document.createElement('p');
+                    emptyP.className = 'text-gray-500';
+                    emptyP.textContent = 'אין מסלולים להצגה';
+                    resultsContent.appendChild(emptyP);
                     resultsPanel.classList.remove('hidden');
                     return;
                 }
@@ -1504,36 +1510,48 @@
                 // Tree info
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'bg-blue-50 p-4 rounded-lg mb-4';
-                infoDiv.innerHTML = `
-                    <h3 class="font-bold text-blue-800 mb-2">📋 פרטי העץ</h3>
-                    <p><strong>נושא:</strong> ${this.treeTopic}</p>
-                    <p><strong>מספר מסלולים:</strong> ${paths.length}</p>
-                `;
+                const infoH3 = document.createElement('h3');
+                infoH3.className = 'font-bold text-blue-800 mb-2';
+                infoH3.textContent = '📋 פרטי העץ';
+                const topicP = document.createElement('p');
+                topicP.innerHTML = `<strong>נושא:</strong> `;
+                const topicSpan = document.createElement('span');
+                topicSpan.textContent = this.treeTopic;
+                topicP.appendChild(topicSpan);
+                const countP = document.createElement('p');
+                countP.innerHTML = `<strong>מספר מסלולים:</strong> ${paths.length}`;
+                infoDiv.appendChild(infoH3);
+                infoDiv.appendChild(topicP);
+                infoDiv.appendChild(countP);
                 resultsContent.appendChild(infoDiv);
 
                 // Paths
                 const pathsDiv = document.createElement('div');
-                pathsDiv.innerHTML = '<h3 class="font-bold text-gray-800 mb-3">🛤️ כל המסלולים והסתברויותיהם:</h3>';
+                const pathsTitle = document.createElement('h3');
+                pathsTitle.className = 'font-bold text-gray-800 mb-3';
+                pathsTitle.textContent = '🛤️ כל המסלולים והסתברויותיהם:';
+                pathsDiv.appendChild(pathsTitle);
                 
-                paths.forEach((pathData, index) => {
+                paths.forEach((pathData) => {
                     const pathDiv = document.createElement('div');
                     pathDiv.className = 'bg-gray-50 p-4 rounded-lg mb-3';
                     
-                    const pathString = pathData.path.join(' → ');
-                    const percentage = (pathData.probability * 100).toFixed(1);
+                    const topRow = document.createElement('div');
+                    topRow.className = 'flex justify-between items-center';
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'font-medium';
+                    nameSpan.textContent = pathData.path.join(' → ');
+                    const pctSpan = document.createElement('span');
+                    pctSpan.className = 'bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-bold';
+                    pctSpan.textContent = `${(pathData.probability * 100).toFixed(1)}%`;
+                    topRow.appendChild(nameSpan);
+                    topRow.appendChild(pctSpan);
+                    const probRow = document.createElement('div');
+                    probRow.className = 'text-sm text-gray-600 mt-1';
+                    probRow.textContent = `הסתברות: ${pathData.probability.toFixed(4)}`;
                     
-                    pathDiv.innerHTML = `
-                        <div class="flex justify-between items-center">
-                            <span class="font-medium">${pathString}</span>
-                            <span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-bold">
-                                ${percentage}%
-                            </span>
-                        </div>
-                        <div class="text-sm text-gray-600 mt-1">
-                            הסתברות: ${pathData.probability.toFixed(4)}
-                        </div>
-                    `;
-                    
+                    pathDiv.appendChild(topRow);
+                    pathDiv.appendChild(probRow);
                     pathsDiv.appendChild(pathDiv);
                 });
                 
@@ -1542,16 +1560,21 @@
                 // Validation
                 const totalProbability = paths.reduce((sum, path) => sum + path.probability, 0);
                 const validationDiv = document.createElement('div');
-                validationDiv.className = `p-4 rounded-lg ${Math.abs(totalProbability - 1.0) < 0.01 ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`;
-                validationDiv.innerHTML = `
-                    <h3 class="font-bold mb-2">✅ בדיקת תקינות</h3>
-                    <p>סכום כל ההסתברויות: ${totalProbability.toFixed(4)}</p>
-                    <p class="text-sm mt-1">
-                        ${Math.abs(totalProbability - 1.0) < 0.01 ? 
-                            '✅ מעולה! סכום ההסתברויות שווה ל-1' : 
-                            '⚠️ שימו לב: סכום ההסתברויות צריך להיות 1'}
-                    </p>
-                `;
+                const tolerance = 0.001;
+                validationDiv.className = `p-4 rounded-lg ${Math.abs(totalProbability - 1.0) < tolerance ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`;
+                const valH3 = document.createElement('h3');
+                valH3.className = 'font-bold mb-2';
+                valH3.textContent = '✅ בדיקת תקינות';
+                const sumP = document.createElement('p');
+                sumP.textContent = `סכום כל ההסתברויות: ${totalProbability.toFixed(4)}`;
+                const msgP = document.createElement('p');
+                msgP.className = 'text-sm mt-1';
+                msgP.textContent = Math.abs(totalProbability - 1.0) < tolerance ?
+                    '✅ מעולה! סכום ההסתברויות שווה ל-1' :
+                    '⚠️ שימו לב: סכום ההסתברויות צריך להיות 1';
+                validationDiv.appendChild(valH3);
+                validationDiv.appendChild(sumP);
+                validationDiv.appendChild(msgP);
                 resultsContent.appendChild(validationDiv);
                 
                 resultsPanel.classList.remove('hidden');
@@ -1708,46 +1731,73 @@
                     return;
                 }
                 
-                let infoHTML = '<div class="space-y-3">';
+                // Build content safely without innerHTML for user-provided names
+                const container = document.createElement('div');
+                container.className = 'space-y-3';
                 let totalProbability = 0;
                 
                 this.highlightedPaths.forEach((pathData, index) => {
                     const pathNames = pathData.path.map(id => this.nodes.get(id).name);
-                    const pathString = pathNames.join(' → ');
-                    
-                    // Calculate path probability
                     let probability = 1;
                     for (let i = 1; i < pathData.path.length; i++) {
                         const node = this.nodes.get(pathData.path[i]);
                         probability *= node.probability;
                     }
                     totalProbability += probability;
-                    
                     const fraction = this.decimalToFraction(probability);
                     
-                    infoHTML += `
-                        <div class="bg-white p-3 rounded-lg border-2" style="border-color: ${pathData.color}">
-                            <p><strong>נתיב ${index + 1}:</strong> ${pathString}</p>
-                            <p><strong>הסתברות:</strong> ${probability.toFixed(4)} = ${fraction} = ${(probability * 100).toFixed(1)}%</p>
-                            <button onclick="tree.removeHighlightedPath(${index})" class="text-red-600 hover:text-red-800 text-sm mt-1">
-                                🗑️ הסר נתיב זה
-                            </button>
-                        </div>
-                    `;
+                    const card = document.createElement('div');
+                    card.className = 'bg-white p-3 rounded-lg border-2';
+                    card.style.borderColor = pathData.color;
+                    
+                    const titleP = document.createElement('p');
+                    const strong = document.createElement('strong');
+                    strong.textContent = `נתיב ${index + 1}: `;
+                    titleP.appendChild(strong);
+                    const nameSpan = document.createElement('span');
+                    nameSpan.textContent = pathNames.join(' → ');
+                    titleP.appendChild(nameSpan);
+                    
+                    const probP = document.createElement('p');
+                    const strong2 = document.createElement('strong');
+                    strong2.textContent = 'הסתברות: ';
+                    probP.appendChild(strong2);
+                    probP.appendChild(document.createTextNode(`${probability.toFixed(4)} = ${fraction} = ${(probability * 100).toFixed(1)}%`));
+                    
+                    const btn = document.createElement('button');
+                    btn.className = 'text-red-600 hover:text-red-800 text-sm mt-1';
+                    btn.textContent = '🗑️ הסר נתיב זה';
+                    btn.addEventListener('click', () => this.removeHighlightedPath(index));
+                    
+                    card.appendChild(titleP);
+                    card.appendChild(probP);
+                    card.appendChild(btn);
+                    container.appendChild(card);
                 });
                 
                 if (this.highlightedPaths.length > 1) {
-                    infoHTML += `
-                        <div class="bg-blue-50 p-3 rounded-lg border-2 border-blue-300">
-                            <p><strong>סה"כ הסתברות של כל הנתיבים:</strong> ${totalProbability.toFixed(4)} = ${(totalProbability * 100).toFixed(1)}%</p>
-                        </div>
-                    `;
+                    const totalCard = document.createElement('div');
+                    totalCard.className = 'bg-blue-50 p-3 rounded-lg border-2 border-blue-300';
+                    const totalP = document.createElement('p');
+                    const strong = document.createElement('strong');
+                    strong.textContent = 'סה"כ הסתברות של כל הנתיבים: ';
+                    totalP.appendChild(strong);
+                    totalP.appendChild(document.createTextNode(`${totalProbability.toFixed(4)} = ${(totalProbability * 100).toFixed(1)}%`));
+                    totalCard.appendChild(totalP);
+                    container.appendChild(totalCard);
                 }
                 
-                infoHTML += '</div>';
-                infoHTML += '<p class="text-sm mt-3 text-gray-600">💡 <strong>טיפ:</strong> החזיקו Shift ולחצו על צמתים ברצף כדי לבנות נתיב. לחיצה חוזרת מבטלת סימון. לחצו על עלה כדי להשלים נתיב.</p>';
+                const tipP = document.createElement('p');
+                tipP.className = 'text-sm mt-3 text-gray-600';
+                const tipStrong = document.createElement('strong');
+                tipStrong.textContent = 'טיפ:';
+                tipP.appendChild(document.createTextNode('💡 '));
+                tipP.appendChild(tipStrong);
+                tipP.appendChild(document.createTextNode(' החזיקו Shift ולחצו על צמתים ברצף כדי לבנות נתיב. לחיצה חוזרת מבטלת סימון. לחצו על עלה כדי להשלים נתיב.'));
                 
-                pathDetails.innerHTML = infoHTML;
+                pathDetails.innerHTML = '';
+                pathDetails.appendChild(container);
+                pathDetails.appendChild(tipP);
                 pathInfo.classList.remove('hidden');
             }
 
@@ -2325,5 +2375,5 @@
         document.querySelector('[data-color="#f59e0b"]').classList.remove('border-gray-300');
         document.querySelector('[data-color="#f59e0b"]').classList.add('border-black');
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96ca641b35e2d0ed',t:'MTc1NDc3NTQwOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+    </body>
 </html>
