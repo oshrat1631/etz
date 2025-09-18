@@ -1953,7 +1953,13 @@
         saveNode() {
           if (this.selectedNode === null) return;
 
-          const node = this.nodes.get(this.selectedNode);
+          const parentId = this.selectedNode;
+          const node = this.nodes.get(parentId);
+          if (!node) {
+            console.error("Node not found:", parentId);
+            return;
+          }
+          
           const newName = document
             .getElementById("node-name-input")
             .value.trim();
@@ -2080,15 +2086,28 @@
           });
           node.children = [];
 
+          // Calculate positioning for new children
+          const branchCount = branchData.length;
+          const spacing = branchCount > 1 ? Math.max(140, Math.min(220, 260 - branchCount * 10)) : 180;
+          const startX = branchCount > 0 ? node.x - ((branchCount - 1) * spacing) / 2 : node.x;
+          const targetY = node.y + 150;
+          
+          // Clamp function to keep nodes within canvas bounds
+          const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+          const minX = 60;
+          const maxX = 1140;
+          const minY = 80;
+          const maxY = 760;
+
           // Add new children from validated data
-          branchData.forEach((branch) => {
+          branchData.forEach((branch, index) => {
             const childNode = {
               id: this.currentNodeId++,
               name: branch.name,
-              x: 0,
-              y: 0,
+              x: clamp(startX + index * spacing, minX, maxX),
+              y: clamp(targetY, minY, maxY),
               children: [],
-              parent: this.selectedNode,
+              parent: parentId,
               probability: branch.probability,
             };
 
@@ -2098,6 +2117,7 @@
 
           this.closeModal();
           this.drawTree();
+          this.updateResults();
           this.autoSave(); // Auto-save after changes
         }
 
